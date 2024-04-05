@@ -339,8 +339,30 @@ class Sardine(gym.Env):
         if not condition:
             reward = np.sum(clicks)
         else:
-            """TODO : Implement a reward function for the conditional case"""
-            reward = np.sum(clicks)
+            """
+                TODO : Implement a reward function for the conditional case
+            """
+
+            r_acc = np.sum(clicks)
+
+            def intra_slate_dissimilarity(slate):
+                """
+                    TODO: Implement intra-slate dissimilarity metric.
+                """
+                return 0
+
+            r_div = intra_slate_dissimilarity(slate)
+
+            def novelty(slate):
+                """
+                    TODO: Implement novelty metric.
+                """
+
+                return 0
+
+            r_nov = novelty(slate)
+
+            reward = r_acc + r_div + r_nov
 
         return obs, reward, terminated, False, info
 
