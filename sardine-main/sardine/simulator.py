@@ -283,7 +283,7 @@ class Sardine(gym.Env):
 
         return user_state
 
-    def step(self, slate) -> Tuple[Dict, float, bool, bool, Dict]:
+    def step(self, slate, condition=False) -> Tuple[Dict, float, bool, bool, Dict]:
         '''
             Simulates user interaction.
         '''
@@ -335,7 +335,14 @@ class Sardine(gym.Env):
             info["terminated"] = False
 
         obs = {'slate' : slate, 'clicks' : clicks, 'hist' : self.norm_recent_topics_hist}
-        return obs, np.sum(clicks), terminated, False, info
+
+        if not condition:
+            reward = np.sum(clicks)
+        else:
+            """TODO : Implement a reward function for the conditional case"""
+            reward = np.sum(clicks)
+
+        return obs, reward, terminated, False, info
 
     def _append_dict_values(self, old_dict, append_dict):
         for k in old_dict.keys():
@@ -415,6 +422,7 @@ class Sardine(gym.Env):
                 u += 1
             else:
                 observation = next_obs
+                print(observation)
         if dataset_type == "sb3_rollout":
             dataset.compute_returns_and_advantage(torch.zeros(1), np.array(True))
         return dataset
