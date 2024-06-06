@@ -1,5 +1,7 @@
-data/
+src/data/
 MovieLens/.DS_Store
 Finn.no/.DS_Store
 .DS_Store
 untracked/
+Q-learning/
+Datasets/ml-latest/
