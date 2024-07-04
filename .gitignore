@@ -14,3 +14,8 @@ Datasets/ml-latest-small/
 Datasets/datasets-venv/
 misc/
 venv/
+sardine/wrappers/__pycache__/
+sardine/__pycache__/
+sardine/policies/__pycache__/
+momdp/__pycache__/
+example.py
