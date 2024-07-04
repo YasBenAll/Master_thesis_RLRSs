@@ -4,4 +4,12 @@ Finn.no/.DS_Store
 .DS_Store
 untracked/
 Q-learning/
-Datasets/ml-latest/
+Datasets/embeddings/
+Datasets/ml-1m/
+Datasets/ml-10M100K/
+Datasets/ml-25m/
+Datasets/ml-100k/
+Datasets/ml-latest/ 
+Datasets/ml-latest-small/
+Datasets/datasets-venv/
+misc/
