@@ -6,23 +6,23 @@
 
 
 ## Project Structure
-momdp_project/
-│
-├── main.py
-├── momdp/
-│ ├── init.py
-│ ├── momdp.py
-│ ├── policy.py
-│ └── evaluation.py
-├── data/
-│ ├── init.py
-│ └── gen_dataset.py
-├── tests/
-│ ├── init.py
-│ ├── test_momdp.py
-│ ├── test_policy.py
-│ └── test_evaluation.py
-└── requirements.txt
+
+momdp_project/  
+├── main.py  
+├── momdp/  
+│   ├── \_\_init\_\_.py  
+│   ├── momdp.py  
+│   ├── policy.py  
+│   └── evaluation.py  
+├── data/  
+│   ├── \_\_init\_\_.py  
+│   └── gen_dataset.py  
+├── tests/  
+│   ├── \_\_init\_\_.py  
+│   ├── test_momdp.py  
+│   ├── test_policy.py  
+│   └── test_evaluation.py  
+└── requirements.txt  
 
 
 ### Files and Directories

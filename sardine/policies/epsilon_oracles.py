@@ -28,3 +28,8 @@ class EpsilonGreedyAntiOracle(Policy):
         return np.where(bernoulli_vector, 
                         np.random.randint(self.num_items, size = (self.slate_size,)), 
                         - 2 * np.ones((self.slate_size,), dtype = int))
+
+# create a policy returning random actions 
+class RandomPolicy(Policy):
+    def get_action(self, observation):
+        return np.random.randint(self.num_items, size = (self.slate_size,))

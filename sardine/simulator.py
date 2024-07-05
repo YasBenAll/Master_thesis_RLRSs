@@ -16,6 +16,7 @@ from .consts import DATA_REC_SIM_EMBEDDS
 import gymnasium as gym
 from gymnasium import spaces
 
+
 # Pre-defined boredom types and click models
 _BOREDOM_TYPES = Literal["user_tloi", "user_car"]
 _CLICK_MODELS = Literal["tdPBM", "mixPBM"]
@@ -82,7 +83,6 @@ class Sardine(gym.Env):
         return sum(distances) / (len(slate) * (len(slate) - 1))
 
     def jaccard_distance(self, item1, item2):
-        print(item1, item2)
         set1 = set(item1)
         set2 = set(item2)
         return 1 - len(set1 & set2) / len(set1 | set2)
@@ -118,7 +118,6 @@ class Sardine(gym.Env):
             # Values for other topics are completely zeroed out
             num_topics_per_item = 2 # Average number of topics per item
             self.item_embedd = np.random.rand(self.num_items, self.num_topics)
-
             # Create a boolean tensor of shape [num_items, num_topics] filled with False values
             mask = np.zeros((self.num_items, self.num_topics), dtype=bool)
             # Force items to have between 2 and 3 topics
@@ -343,7 +342,6 @@ class Sardine(gym.Env):
         self.clicked_step.extend(self.t * np.ones_like(clicked_items))
         info["clicks"] = clicks
 
-        print(slate)
 
         ## Update the user state for the next step
         user_state = self._update_user_state(slate, clicked_items)
@@ -358,7 +356,6 @@ class Sardine(gym.Env):
             info["terminated"] = False
 
         obs = {'slate' : slate, 'clicks' : clicks, 'hist' : self.norm_recent_topics_hist}
-        print("item embeddings",)
         return obs, {"engagement":self.engagement_reward(clicks), "diversity":self.diversity_reward(self.item_embedd[slate]), "novelty":self.novelty_reward(slate)}, terminated, False, info
 
     def _append_dict_values(self, old_dict, append_dict):
