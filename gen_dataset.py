@@ -16,7 +16,7 @@ np.set_printoptions(precision=3)
 
 def get_parser(parents  = [], args = None):
     parser = argparse.ArgumentParser(parents = parents, add_help=False)
-    parser.add_argument('--env_id', type=str, default='test-v0')
+    parser.add_argument('--env_id', type=str, default='ml-100k-v0')
     parser.add_argument('--seed', type=int, default=2024)
     parser.add_argument('--lp', type=str, default='oracle')
     parser.add_argument('--eps', type=float, default=0.0)
@@ -81,7 +81,7 @@ if __name__ == "__main__":
     env = IdealState(env)
 
     dataset = generate_dataset(env, args.seed, args.lp, args.eps, args.n_users, args.dataset_type)
-
+    print(dataset)
     # save ordered dict
     path = os.path.join("data", "datasets", f"env_data_{args.env_id}_lp_{args.lp}_epsilon_{args.eps}_seed_{args.seed}_n_users_{args.n_users}")
 

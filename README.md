@@ -7,7 +7,7 @@
 
 ## Project Structure
 
-momdp_project/  
+Master_thesis_RLRSs/  
 ├── main.py  
 ├── momdp/  
 │   ├── \_\_init\_\_.py  

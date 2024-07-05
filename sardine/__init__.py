@@ -7,10 +7,10 @@ from gymnasium.envs.registration import register
 from .version import __version__
 
 register(
-    id="sardine/test-v0",
+    id="sardine/ml-100k-v0",
     entry_point="sardine.simulator:Sardine",
     kwargs={
-        "num_items": 1700,
+        "num_items": 1682,
         "slate_size": 8,
         "num_topics": 19,
         "episode_length": 100,
@@ -22,7 +22,7 @@ register(
         "recent_items_maxlen": 10,
         "boredom_threshold": 5,
         "boredom_moving_window": 5,
-        "env_embedds": None,
+        "env_embedds": "ml-100k.npy",
         "click_model": "tdPBM",
         "rel_penalty": False,
         "rel_threshold": None,
