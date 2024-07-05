@@ -33,7 +33,7 @@ class Sardine(gym.Env):
                 recent_items_maxlen : int, boredom_threshold : int, boredom_moving_window : int, 
                 env_embedds : str, click_model : _CLICK_MODELS, rel_threshold : float, 
                 diversity_penalty : float, diversity_threshold : int, click_prop : float,
-                boredom_type : _BOREDOM_TYPES, rel_penalty : bool, render_mode=None, **kwargs):
+                boredom_type : _BOREDOM_TYPES, rel_penalty : bool, user_priors: str, render_mode=None, **kwargs):
         super().__init__()
 
         ### General parameters of the environment
@@ -71,9 +71,13 @@ class Sardine(gym.Env):
         self.rel_penalty = rel_penalty
         self.boredom_type = boredom_type
 
+        # user priors for generating embeddings
+        self.user_priors = np.load(os.path.join(DATA_REC_SIM_EMBEDDS, "user_priors", user_priors))['priors']
         ### Item generation
         self._init_item_embeddings(env_embedds)
         self._set_topic_for_items()
+
+
 
     def engagement_reward(self, clicks):
         return sum(clicks)
@@ -154,22 +158,31 @@ class Sardine(gym.Env):
         clicks = self.np_random.binomial(n = 1, p = click_probs)
         return clicks
 
-    def _reset_user_embedds(self):
+    def _reset_user_embedds(self, num_topics_per_user=4, threshold=0.5, specialist_ratio = 0):
         '''
             Resets the user embedding
         '''
         # User embedding where users are only interested in a certain number of topics
         # Values for other topics are completely zeroed out
-
-        num_topics_per_user = 4 # Average number of topics per user
-        threshold = 1 - float(num_topics_per_user) / self.num_topics
-        self.user_embedd = self.np_random.uniform(size = (self.num_topics,))
-        mask = self.np_random.uniform(size = (self.num_topics,)) > threshold
-        while sum(mask) <= num_topics_per_user - 2 or sum(mask) >= num_topics_per_user + 2: # Force users to have between 3 and 5 topics
+        if self.user_priors is None:
+            num_topics_per_user = 4 # Average number of topics per user
+            threshold = 1 - float(num_topics_per_user) / self.num_topics
+            self.user_embedd = self.np_random.uniform(size = (self.num_topics,))
             mask = self.np_random.uniform(size = (self.num_topics,)) > threshold
-        self.user_embedd *= mask
-        embedd_norm = np.linalg.norm(self.user_embedd)
-        self.user_embedd /= embedd_norm
+            while sum(mask) <= num_topics_per_user - 2 or sum(mask) >= num_topics_per_user + 2: # Force users to have between 3 and 5 topics
+                mask = self.np_random.uniform(size = (self.num_topics,)) > threshold
+            self.user_embedd *= mask
+            embedd_norm = np.linalg.norm(self.user_embedd)
+            self.user_embedd /= embedd_norm
+        else:
+            user_type = np.random.choice(["generalist", "specialist"], p = [1 - specialist_ratio, specialist_ratio])
+            if user_type == "generalist":
+                samples = np.random.choice(len(self.user_priors), size=np.random.choice([7,8,9]), p=self.user_priors, replace=False)
+            else:
+                samples = np.random.choice(len(self.user_priors), size=np.random.choice([3,4,5]), p=self.user_priors, replace=False)
+            self.user_embedd = np.zeros(self.num_topics)
+            self.user_embedd[samples] = 1
+            self.user_embedd /= np.linalg.norm(self.user_embedd)
 
     def _initial_reco(self):
         """
@@ -413,6 +426,7 @@ class Sardine(gym.Env):
                             "action": [],
                             "reward": {"engagement": [], "diversity": [], "novelty": []}}
         while u < n_users:
+
             action = policy.get_action(observation)
             next_obs, reward, terminated, truncated, info = self.step(action)
             done = terminated or truncated
@@ -426,7 +440,9 @@ class Sardine(gym.Env):
                 self._append_dict_values(episode_dict, {"observation": observation, "action": info["slate"], "reward": reward})
 
             if done:
+                print(f"Generating user {u+1}/{n_users}...")
                 observation, _ = self.reset()
+                print(self.user_embedd)
                 if dataset_type == "dict":
                     self._to_numpy(episode_dict)
                     dataset[u] = episode_dict

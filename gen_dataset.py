@@ -23,6 +23,7 @@ def get_parser(parents  = [], args = None):
     parser.add_argument("--n_users", type=int, default=10)
     parser.add_argument("--data_dir", type=str, default="data/")
     parser.add_argument("--dataset_type", type=str, default="dict")
+    parser.add_argument("--specialist-ratio", type=float, default=0.0)
     return parser
 
 def generate_dataset(env, seed, lp, eps, n_users, dataset_type):
@@ -81,7 +82,7 @@ if __name__ == "__main__":
     env = IdealState(env)
 
     dataset = generate_dataset(env, args.seed, args.lp, args.eps, args.n_users, args.dataset_type)
-    print(dataset)
+    # print(dataset)
     # save ordered dict
     path = os.path.join("data", "datasets", f"env_data_{args.env_id}_lp_{args.lp}_epsilon_{args.eps}_seed_{args.seed}_n_users_{args.n_users}")
 
