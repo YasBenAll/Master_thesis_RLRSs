@@ -1,0 +1,9 @@
+numpy==1.23.1
+gymnasium>=0.28
+line-profiler==4.0.3
+tensorboard>=2.11.2
+matplotlib==3.7
+seaborn==0.12
+wandb==0.15
+pytorch-lightning==2.0.2
+pandas==2.0.2

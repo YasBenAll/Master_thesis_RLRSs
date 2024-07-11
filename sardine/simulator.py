@@ -87,9 +87,10 @@ class Sardine(gym.Env):
         return sum(distances) / (len(slate) * (len(slate) - 1))
 
     def jaccard_distance(self, item1, item2):
-        set1 = set(item1)
-        set2 = set(item2)
-        return 1 - len(set1 & set2) / len(set1 | set2)
+        # define for each index whether the value is the same for both items
+        same = [i == j for i, j in zip(item1, item2)]
+        # calculate the Jaccard distance
+        return 1 - sum(same) / len(same) 
 
 
     def novelty_reward(self, slate):
@@ -369,7 +370,7 @@ class Sardine(gym.Env):
             info["terminated"] = False
 
         obs = {'slate' : slate, 'clicks' : clicks, 'hist' : self.norm_recent_topics_hist}
-        return obs, {"engagement":self.engagement_reward(clicks), "diversity":self.diversity_reward(self.item_embedd[slate]), "novelty":self.novelty_reward(slate)}, terminated, False, info
+        return obs, np.array([self.engagement_reward(clicks), self.diversity_reward(self.item_embedd[slate]), self.novelty_reward(slate)]), terminated, False, info
 
     def _append_dict_values(self, old_dict, append_dict):
         for k in old_dict.keys():
@@ -420,6 +421,7 @@ class Sardine(gym.Env):
                 self.observation_space,
                 self.action_space,
                 device = "cpu",
+                num_rewards = 3,
                 handle_timeout_termination = False)
         else:
             episode_dict = {"observation": {"slate": [], "clicks": [], "hist": []},
@@ -430,7 +432,7 @@ class Sardine(gym.Env):
             action = policy.get_action(observation)
             next_obs, reward, terminated, truncated, info = self.step(action)
             done = terminated or truncated
-
+    
             if dataset_type == "sb3_rollout":
                 dataset.add(observation, info["slate"], reward, ep_starts, torch.zeros(1), torch.ones(1))
                 ep_starts = np.array(done)
@@ -440,9 +442,9 @@ class Sardine(gym.Env):
                 self._append_dict_values(episode_dict, {"observation": observation, "action": info["slate"], "reward": reward})
 
             if done:
-                print(f"Generating user {u+1}/{n_users}...")
+                # print(f"Generating user {u+1}/{n_users}...")
                 observation, _ = self.reset()
-                print(self.user_embedd)
+                # print(self.user_embedd)
                 if dataset_type == "dict":
                     self._to_numpy(episode_dict)
                     dataset[u] = episode_dict

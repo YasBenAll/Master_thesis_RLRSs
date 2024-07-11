@@ -19,3 +19,5 @@ sardine/__pycache__/
 sardine/policies/__pycache__/
 momdp/__pycache__/
 example.py
+gems/gems-venv/
+gems/utils/.env

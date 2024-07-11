@@ -4,7 +4,7 @@ import mo_gymnasium as mo_gym
 import numpy as np
 import os
 import pickle
-import sardine
+import torch
 from momdp.momdp import MOMDP
 from momdp.policy import create_policy
 from momdp.evaluation import evaluate_momdp
@@ -58,7 +58,7 @@ def evaluate(env, seed):
         observation, reward, terminated, truncated, info = env.step(action)
         clicks = info["clicks"]
         slate = info["slate"]
-        rewards = np.array([reward["engagement"], reward["diversity"], reward["novelty"]])
+        rewards = reward
         cum_reward += rewards
         cum_boredom += (1.0 if np.sum(info["bored"] == True) > 0 else 0.0)
 
@@ -82,7 +82,8 @@ if __name__ == "__main__":
     env = IdealState(env)
 
     dataset = generate_dataset(env, args.seed, args.lp, args.eps, args.n_users, args.dataset_type)
-    # print(dataset)
+    print(dataset)
+    print(type(dataset))
     # save ordered dict
     path = os.path.join("data", "datasets", f"env_data_{args.env_id}_lp_{args.lp}_epsilon_{args.eps}_seed_{args.seed}_n_users_{args.n_users}")
 
@@ -90,8 +91,8 @@ if __name__ == "__main__":
         with open(f'{path}.pkl', 'wb') as f:
             pickle.dump(dataset, f)
             print("Saved dataset to ", path)
-    elif type(dataset) == "sb3_replay":
-        dataset.save(path)
+    else:
+        torch.save(dataset, path+"_sb3_replay.pt")
         print("Saved dataset to ", path)
 
     print("Done!")

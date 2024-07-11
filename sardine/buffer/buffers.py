@@ -501,6 +501,8 @@ class RolloutBuffer(BaseBuffer):
 
         self.observations[self.pos] = np.array(obs).copy()
         self.actions[self.pos] = np.array(action).copy()
+        print(self.rewards)
+        print(reward)
         self.rewards[self.pos] = np.array(reward).copy()
         self.episode_starts[self.pos] = np.array(episode_start).copy()
         self.values[self.pos] = value.clone().cpu().numpy().flatten()
@@ -585,6 +587,7 @@ class DictReplayBuffer(ReplayBuffer):
         n_envs: int = 1,
         optimize_memory_usage: bool = False,
         handle_timeout_termination: bool = True,
+        num_rewards: int = 3,
     ):
         super(ReplayBuffer, self).__init__(
             buffer_size, observation_space, action_space, device, n_envs=n_envs
@@ -624,7 +627,8 @@ class DictReplayBuffer(ReplayBuffer):
         self.actions = np.zeros(
             (self.buffer_size, self.n_envs, self.action_dim), dtype=action_space.dtype
         )
-        self.rewards = np.zeros((self.buffer_size, self.n_envs), dtype=np.float32)
+        self.num_rewards = num_rewards
+        self.rewards = np.zeros((self.buffer_size, self.n_envs, self.num_rewards), dtype=np.float32)
         self.dones = np.zeros((self.buffer_size, self.n_envs), dtype=np.float32)
 
         # Handle timeouts termination properly if needed
@@ -686,6 +690,8 @@ class DictReplayBuffer(ReplayBuffer):
         action = action.reshape((self.n_envs, self.action_dim))
 
         self.actions[self.pos] = np.array(action).copy()
+        print(self.rewards.shape)
+        print(self.rewards)
         self.rewards[self.pos] = np.array(reward).copy()
         self.dones[self.pos] = np.array(done).copy()
 

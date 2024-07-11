@@ -59,6 +59,10 @@ Master_thesis_RLRSs/
     pip install -r requirements.txt
     ```
 
+4. Install pytorch with the right CUDA version
+  	```
+    pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+    ```
 ## Usage
 
 Run the main script to initialize and evaluate the MOMDP system:
