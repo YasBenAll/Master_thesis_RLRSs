@@ -7,7 +7,7 @@ from gymnasium.envs.registration import register
 from .version import __version__
 
 register(
-    id="sardine/ml-100k-v0",
+    id="ml-100k-v0",
     entry_point="sardine.simulator:Sardine",
     kwargs={
         "num_items": 1682,
