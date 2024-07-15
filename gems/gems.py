@@ -19,8 +19,7 @@ def get_parser(parents = []):
     parser.add_argument(
         "--dataset",
         type=str,
-        default="env_data_ml-100k-v0_lp_oracle_epsilon_0.0_seed_2024_n_users_10_sb3_replay",
-        required=True,
+        default="env_data_ml-100k-v0_lp_oracle_epsilon_0.0_seed_2024_n_users_100.pt",
         help="Path to dataset",
     )
     parser.add_argument(
@@ -64,6 +63,18 @@ def get_parser(parents = []):
         type=float,
         default=0.2,
         help="Click loss weight in GeMS.",
+    ),
+    parser.add_argument(
+        "--slate-size",
+        type=float,
+        default=8,
+        help="Size of slate.",
+    ), 
+    parser.add_argument(
+        "--num_workers", 
+        type=int,
+        default=0,
+        help="Number of workers for dataloader."
     )
     return parser
 
@@ -106,7 +117,7 @@ class ReplayBufferDataSet(torch.utils.data.Dataset):
                 )
 
 class ReplayBufferDataModule(pl.LightningDataModule):
-    def __init__(self, data_dir: str, dataset: str, gems_batch_size: int, device: torch.device, **kwargs):
+    def __init__(self, data_dir: str, dataset: str, gems_batch_size: int, device: torch.device, num_workers: int, **kwargs):
         super().__init__()
 
         self.data_dir = data_dir
@@ -115,6 +126,7 @@ class ReplayBufferDataModule(pl.LightningDataModule):
         self.device = device
         self.batch_size = gems_batch_size
         self.train_to_val_ratio = 4
+        self.num_workers = num_workers
 
     def setup(self, stage: str):
         dataset = torch.load(self.data_dir + "datasets/" + self.dataset, map_location = self.device)
@@ -137,15 +149,15 @@ class ReplayBufferDataModule(pl.LightningDataModule):
         return ReplayBatch(observations, actions, next_observations, dones, rewards)
 
     def train_dataloader(self):
-        return torch.utils.data.DataLoader(self.train, batch_size=self.batch_size)
+        return torch.utils.data.DataLoader(self.train, batch_size=self.batch_size, num_workers=self.num_workers)
 
     def val_dataloader(self):
-        return torch.utils.data.DataLoader(self.val, batch_size=self.batch_size)
+        return torch.utils.data.DataLoader(self.val, batch_size=self.batch_size, num_workers=self.num_workers)
 
 def train(args, config_hash):
     # Model
     gems = GeMS(**vars(args))
-    torch.set_float32_matmul_precision('medium')
+
     # Loggers
     loggers = []
     if args.track == "wandb":
@@ -179,8 +191,8 @@ def train(args, config_hash):
 
     ## Load data and intialize data module
     datamod = ReplayBufferDataModule(**vars(args))
+
     ## Train the model
-    print("gems, datamod", gems, datamod)
     trainer.fit(gems, datamod)
 
     # Save state_dict of decoder for downstream RL training
@@ -199,24 +211,5 @@ if __name__ == "__main__":
     if device.type != "cpu":
         torch.set_default_tensor_type("torch.cuda.FloatTensor")
 
-    print("### Pretraining GeMS ###")
-    decoder_dir = args.data_dir + "GeMS/decoder/" + args.exp_name + "/"
     config_hash = hash_config(args)
-    if Path(decoder_dir, config_hash + '.pt').is_file() and (args.run_name != 'test'):
-        # checkpoint already exists.
-        print("Skipping GeMS training") # since it has already been done"
-        decoder = torch.load(decoder_dir + config_hash + ".pt").to(device)
-
-        if args.track == "wandb":
-            import wandb
-            run_name = f"{args.exp_name}_{args.run_name}_seed{args.seed}_{int(time.time())}"
-            wandb.init(
-                project=args.wandb_project_name,
-                entity=args.wandb_entity,
-                config=vars(args),
-                name=run_name,
-                monitor_gym=False,
-                save_code=True,
-            )
-    else:
-        decoder = gems.train(args, config_hash)
+    train(args, config_hash)

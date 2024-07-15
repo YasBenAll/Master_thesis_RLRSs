@@ -18,12 +18,12 @@ def get_parser(parents = [], args = None):
 
 if __name__ == "__main__":
     parser = get_parser(parents = [get_generic_parser(), gems.get_parser()])
-    print(parser)
     args = parser.parse_args()
     decoder = None
 
     pl.seed_everything(args.seed)
     torch.backends.cudnn.deterministic = args.torch_deterministic
+    torch.set_float32_matmul_precision('medium')
     device = torch.device("cuda" if torch.cuda.is_available() and args.device == "cuda" else "cpu")
     if device.type != "cpu":
         torch.set_default_tensor_type("torch.cuda.FloatTensor")
