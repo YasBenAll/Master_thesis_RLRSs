@@ -21,3 +21,5 @@ momdp/__pycache__/
 example.py
 gems/gems-venv/
 gems/utils/.env
+data/GeMS/results/
+data/GeMS/checkpoints/
