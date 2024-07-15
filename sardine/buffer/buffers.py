@@ -501,8 +501,6 @@ class RolloutBuffer(BaseBuffer):
 
         self.observations[self.pos] = np.array(obs).copy()
         self.actions[self.pos] = np.array(action).copy()
-        print(self.rewards)
-        print(reward)
         self.rewards[self.pos] = np.array(reward).copy()
         self.episode_starts[self.pos] = np.array(episode_start).copy()
         self.values[self.pos] = value.clone().cpu().numpy().flatten()
@@ -690,8 +688,6 @@ class DictReplayBuffer(ReplayBuffer):
         action = action.reshape((self.n_envs, self.action_dim))
 
         self.actions[self.pos] = np.array(action).copy()
-        print(self.rewards.shape)
-        print(self.rewards)
         self.rewards[self.pos] = np.array(reward).copy()
         self.dones[self.pos] = np.array(done).copy()
 
@@ -746,6 +742,22 @@ class DictReplayBuffer(ReplayBuffer):
             env,
         )
 
+
+        
+        r = self.to_torch(
+                        self._normalize_reward(
+                            self.rewards[batch_inds, env_indices].reshape(-1, 1, 3), env
+                        )
+                    )
+        # MORL reward
+        if self.rewards.shape == (10000, 1, 3): 
+            r = self.to_torch(
+                self._normalize_reward(
+                    self.rewards[batch_inds, env_indices].reshape(-1, 1, 3), env
+                )
+            )
+        
+
         # Convert to torch tensor
         observations = {key: self.to_torch(obs) for key, obs in obs_.items()}
         next_observations = {key: self.to_torch(obs) for key, obs in next_obs_.items()}
@@ -760,11 +772,7 @@ class DictReplayBuffer(ReplayBuffer):
                 self.dones[batch_inds, env_indices]
                 * (1 - self.timeouts[batch_inds, env_indices])
             ).reshape(-1, 1),
-            rewards=self.to_torch(
-                self._normalize_reward(
-                    self.rewards[batch_inds, env_indices].reshape(-1, 1), env
-                )
-            ),
+            rewards=r,
         )
 
 
