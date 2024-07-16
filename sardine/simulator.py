@@ -72,7 +72,7 @@ class Sardine(gym.Env):
         self.boredom_type = boredom_type
 
         # user priors for generating embeddings
-        self.user_priors = np.load(os.path.join(DATA_REC_SIM_EMBEDDS, "user_priors", user_priors))['priors']
+        self.user_priors = np.load(os.path.join(DATA_REC_SIM_EMBEDDS, user_priors))['priors']
         ### Item generation
         self._init_item_embeddings(env_embedds)
         self._set_topic_for_items()
