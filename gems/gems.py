@@ -19,7 +19,7 @@ def get_parser(parents = []):
     parser.add_argument(
         "--dataset",
         type=str,
-        default="env_data_ml-100k-v0_lp_oracle_epsilon_0.0_seed_2024_n_users_100.pt",
+        default="ml-100k-v0_oracle_epsilon0.5_seed2023_n_users100000.pt",
         help="Path to dataset",
     )
     parser.add_argument(
@@ -37,7 +37,7 @@ def get_parser(parents = []):
     parser.add_argument(
         "--gems-batch-size",
         type=int,
-        default=128,
+        default=256,
         help="Batch size for GeMS pretraining.",
     )
     parser.add_argument(
@@ -176,18 +176,18 @@ def train(args, config_hash):
     loggers.append(csv_logger)
 
     # Trainer
-    if args.exp_name == 'test':
-        trainer = pl.Trainer(logger=loggers, enable_progress_bar = False, devices = 1,
-                                accelerator = "gpu" if args.device == "cuda" else "cpu", 
-                                max_epochs = args.max_epochs, num_sanity_val_steps=0)
-    else :
-        ckpt_dir =  args.data_dir + "GeMS/checkpoints/" + args.exp_name + "/"
-        Path(ckpt_dir).mkdir(parents=True, exist_ok=True)
-        model_checkpoint = ModelCheckpoint(monitor = 'val/loss', dirpath = ckpt_dir, filename = config_hash)
+    # if args.exp_name == 'test':
+    #     trainer = pl.Trainer(logger=loggers, enable_progress_bar = False, devices = 1,
+    #                             accelerator = "gpu" if args.device == "cuda" else "cpu", 
+    #                             max_epochs = args.max_epochs, num_sanity_val_steps=0)
+    # else :
+    ckpt_dir =  args.data_dir + "GeMS/checkpoints/" + args.exp_name + "/"
+    Path(ckpt_dir).mkdir(parents=True, exist_ok=True)
+    model_checkpoint = ModelCheckpoint(monitor = 'val/loss', dirpath = ckpt_dir, filename = config_hash)
 
-        trainer = pl.Trainer(logger=loggers, enable_progress_bar = False, devices = 1,
-                                accelerator = "gpu" if args.device == "cuda" else "cpu", 
-                                callbacks = [model_checkpoint], max_epochs = args.max_epochs)
+    trainer = pl.Trainer(logger=loggers, enable_progress_bar = False, devices = 1,
+                            accelerator = "gpu" if args.device == "cuda" else "cpu", 
+                            callbacks = [model_checkpoint], max_epochs = args.max_epochs)
 
     ## Load data and intialize data module
     datamod = ReplayBufferDataModule(**vars(args))

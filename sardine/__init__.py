@@ -22,7 +22,7 @@ register(
         "recent_items_maxlen": 10,
         "boredom_threshold": 5,
         "boredom_moving_window": 5,
-        "env_embedds": "ml-100k.npy",
+        "env_embedds": "item_embeddings_ml-100k.npy",
         "click_model": "tdPBM",
         "rel_penalty": False,
         "rel_threshold": None,
@@ -32,7 +32,7 @@ register(
         "click_prop": 0.85,
         "boredom_type": "user_car",
         "boredom_reduce_rate": 0.0,
-        "user_priors": "ml-100k_priors.npz"
+        "user_priors": "user_priors_ml-100k.npz"
     }
 )
 

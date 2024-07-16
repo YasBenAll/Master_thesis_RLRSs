@@ -16,11 +16,12 @@ env_id = "ml-100k-v0"
 data_dir = "C:/Users/Yassi/Documents/GitHub/Master_thesis_RLRSs/data/datasets/"
 Path(data_dir).mkdir(parents=True, exist_ok=True)
 Path(data_dir + "embeddings/").mkdir(parents=True, exist_ok=True)
-lp = "antioracle"
-eps = 0.0
+lp = "oracle"
+eps = 0.5
+n_users = 100000
 
 ## Let's create the environment of our choice
-env = gym.make(env_id)
+env = mo_gym.make(env_id)
 
 ## If you want to work with Fully observable state, add a wrapper to the environment
 env = IdealState(env)
@@ -30,9 +31,10 @@ if lp == "oracle":
     logging_policy = EpsilonGreedyOracle(epsilon = eps, env = env, seed = seed)
 elif lp == "antioracle":
     logging_policy = EpsilonGreedyAntiOracle(epsilon = eps, env = env, seed = seed)
-dataset = env.generate_dataset(n_users = 10, policy = logging_policy, seed = seed, dataset_type="sb3_replay")
-print(dataset.observations.keys())
-print(dataset.rewards.dtype)
-path = env_id + "_" + lp + "_epsilon" + str(eps) + "_seed" + str(seed) + ".pt"
+dataset = env.generate_dataset(n_users = n_users, policy = logging_policy, seed = seed, dataset_type="sb3_replay")
+
+path = env_id + "_" + lp + "_epsilon" + str(eps) + "_seed" + str(seed) + "_n_users"+ str(n_users) + ".pt"
 torch.save(dataset, data_dir + path)
-torch.save(env.item_embedd, data_dir + "embeddings/" + path)
+torch.save(env.unwrapped.item_embedd, data_dir + "embeddings/" + path)
+print("Dataset saved at: ", data_dir + path)
+print("Embeddings saved at: ", data_dir + "embeddings/" + path)

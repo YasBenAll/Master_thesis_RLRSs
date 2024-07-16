@@ -64,6 +64,7 @@ class IdealState(gym.Wrapper):
         observation, _ = self.reset(seed = seed)
         self.action_space.seed(seed)
         u = 0
+        print(f"user {u+1}/{n_users}")
         if dataset_type == "sb3_rollout":
             ## TOCHANGE
             try:
@@ -116,6 +117,7 @@ class IdealState(gym.Wrapper):
                     dataset[u] = episode_dict
                     episode_dict = {"observation": [], "action": [], "reward": []}
                 u += 1
+                print(f"user {u}/{n_users}")
             else:
                 observation = next_obs
         if dataset_type == "sb3_rollout":
