@@ -192,8 +192,23 @@ def train(args, config_hash):
     ## Load data and intialize data module
     datamod = ReplayBufferDataModule(**vars(args))
 
+    # log time 
+    start_time = time.time()
+
     ## Train the model
     trainer.fit(gems, datamod)
+
+    # log time
+    end_time = time.time()
+    
+    # Save time
+    with open(args.data_dir + "GeMS/results/" + config_hash + ".txt", "w") as f:
+        f.write(f"dataset: {args.dataset}\n")
+        f.write(f"Time taken: {end_time - start_time}\n")
+        f.write(f"Time taken per epoch: {(end_time - start_time) / args.max_epochs}\n")
+        f.write(f"batch size: {args.gems_batch_size}\n")
+        f.write(f"num workers: {args.num_workers}\n")
+        
 
     # Save state_dict of decoder for downstream RL training
     gems = GeMS.load_from_checkpoint(ckpt_dir + config_hash + ".ckpt", **vars(args))
