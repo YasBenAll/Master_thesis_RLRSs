@@ -30,7 +30,7 @@ def get_parser(parents = []):
     parser.add_argument(
         "--env-id",
         type=str,
-        default="SlateTopK-Bored-v0",
+        default="ml-100k-v0",
         help="the id of the environment",
     )
     parser.add_argument(
@@ -50,7 +50,7 @@ def get_parser(parents = []):
     parser.add_argument(
         "--val-interval",
         type=int,
-        default=50000,
+        default=1000,
         help="Number of timesteps between validation episodes.",
     )
     parser.add_argument(
@@ -77,7 +77,7 @@ def get_parser(parents = []):
     parser.add_argument(
         "--ranker",
         type=str,
-        default="topk",
+        default="gems",
         choices=["topk", "gems"],
         help="Type of ranker for slate generation",
     )
@@ -265,8 +265,12 @@ class SoftQNetwork(nn.Module):
         super().__init__()
 
         if state_dim is None:
-            state_dim = np.array(env.single_observation_space.shape).prod()
-
+            if type(env.single_observation_space) == gym.spaces.Dict:
+                state_dim = 0 
+                for key in env.single_observation_space.spaces.keys():
+                    state_dim += np.array(env.single_observation_space.spaces[key].shape).prod()
+            else:   
+                state_dim = np.array(env.single_observation_space.shape).prod()
         self.model = nn.Sequential(
             nn.Linear(
                 state_dim + np.prod(env.single_action_space.shape),
@@ -298,6 +302,11 @@ class Actor(nn.Module):
     def __init__(self, env, hidden_size, state_dim):
         super().__init__()
 
+        # determine shape of single observation space. Space looks like this: Dict('clicks': MultiBinary(10), 'hist': Box(0.0, 1.0, (10,), float32), 'slate': MultiDiscrete([1000 1000 1000 1000 1000 1000 1000 1000 1000 1000]))
+        if type(env.single_observation_space) == gym.spaces.dict.Dict:
+            state_dim = 0
+            for key in env.single_observation_space.spaces.keys():
+                state_dim += np.array(env.single_observation_space.spaces[key].shape).prod()
         if state_dim is None:
             state_dim = np.array(env.single_observation_space.shape).prod()
         self.fc1 = nn.Linear(state_dim, hidden_size)
@@ -397,7 +406,6 @@ def train(args, decoder = None):
     assert isinstance(
         envs.single_action_space, gym.spaces.Box
     ), "only continuous action space is supported"
-
     actor = Actor(envs, args.hidden_size, args.state_dim).to(args.device)
     qf1 = SoftQNetwork(envs, args.hidden_size, args.state_dim).to(args.device)
     qf1_target = SoftQNetwork(envs, args.hidden_size, args.state_dim).to(args.device)
@@ -465,6 +473,7 @@ def train(args, decoder = None):
 
     # TRY NOT TO MODIFY: start the game
     obs, _ = envs.reset(seed=args.seed)
+    input(f"obs: {obs}, type: {type(obs)}")
     if not args.observable:
         actor_state_encoder.reset()
     envs.single_action_space.seed(args.seed)
@@ -488,10 +497,10 @@ def train(args, decoder = None):
                     actions = actions.cpu().numpy()
 
         # TRY NOT TO MODIFY: execute the game and log data.
+        input()
         next_obs, rewards, terminated, truncated, infos = envs.step(actions)
         if args.ranker == "gems":
             actions = actions.cpu().numpy()
-
         # Run validation episodes
         if global_step % args.val_interval == 0:
             val_start_time = time.time()
@@ -664,6 +673,7 @@ def train(args, decoder = None):
             start_time = time.time()
         if global_step > args.learning_starts:
             data = rb.sample(args.batch_size)
+            
             for _ in range(args.n_updates):
                 with torch.no_grad():
                     if args.observable:
