@@ -33,8 +33,10 @@ class Sardine(gym.Env):
                 recent_items_maxlen : int, boredom_threshold : int, boredom_moving_window : int, 
                 env_embedds : str, click_model : _CLICK_MODELS, rel_threshold : float, 
                 diversity_penalty : float, diversity_threshold : int, click_prop : float,
-                boredom_type : _BOREDOM_TYPES, rel_penalty : bool, user_priors: str, render_mode=None, **kwargs):
+                boredom_type : _BOREDOM_TYPES, rel_penalty : bool, user_priors = None, morl: bool = False, render_mode=None, **kwargs):
         super().__init__()
+
+        self.morl = morl
 
         ### General parameters of the environment
         self.num_items = num_items
@@ -72,7 +74,10 @@ class Sardine(gym.Env):
         self.boredom_type = boredom_type
 
         # user priors for generating embeddings
-        self.user_priors = np.load(os.path.join(DATA_REC_SIM_EMBEDDS, user_priors))['priors']
+        if user_priors is not None:
+            self.user_priors = np.load(os.path.join(DATA_REC_SIM_EMBEDDS, user_priors))['priors']
+        else:
+            self.user_priors = None
         ### Item generation
         self._init_item_embeddings(env_embedds)
         self._set_topic_for_items()
@@ -370,8 +375,10 @@ class Sardine(gym.Env):
             info["terminated"] = False
 
         obs = {'slate' : slate, 'clicks' : clicks, 'hist' : self.norm_recent_topics_hist}
-        return obs, np.array([self.engagement_reward(clicks), self.diversity_reward(self.item_embedd[slate]), self.novelty_reward(slate)]), terminated, False, info
-
+        if self.morl:
+            return obs, np.array([self.engagement_reward(clicks), self.diversity_reward(self.item_embedd[slate])]), terminated, False, info
+        else:
+            return obs, self.engagement_reward(clicks), terminated, False, info
     def _append_dict_values(self, old_dict, append_dict):
         for k in old_dict.keys():
             if isinstance(old_dict[k], dict):
@@ -424,9 +431,15 @@ class Sardine(gym.Env):
                 num_rewards = 3,
                 handle_timeout_termination = False)
         else:
-            episode_dict = {"observation": {"slate": [], "clicks": [], "hist": []},
-                            "action": [],
-                            "reward": {"engagement": [], "diversity": [], "novelty": []}}
+            if self.morl:
+                episode_dict = {"observation": {"slate": [], "clicks": [], "hist": []},
+                                "action": [],
+                                "reward": {"engagement": [], "diversity": [], "novelty": []}}
+            else:
+                episode_dict = {"observation": {"slate": [], "clicks": [], "hist": []},
+                                "action": [],
+                                "reward": []}
+
         while u < n_users:
 
             action = policy.get_action(observation)
@@ -448,9 +461,14 @@ class Sardine(gym.Env):
                 if dataset_type == "dict":
                     self._to_numpy(episode_dict)
                     dataset[u] = episode_dict
-                    episode_dict = {"observation": {"slate": [], "clicks": [], "hist": []},
-                            "action": [],
-                             "reward": {"engagement": [], "diversity": [], "novelty": []}}
+                    if self.morl:
+                        episode_dict = {"observation": {"slate": [], "clicks": [], "hist": []},
+                                "action": [],
+                                "reward": {"engagement": [], "diversity": [], "novelty": []}}
+                    else:
+                        episode_dict = {"observation": {"slate": [], "clicks": [], "hist": []},
+                                "action": [],
+                                "reward": []}
                 u += 1
             else:
                 observation = next_obs

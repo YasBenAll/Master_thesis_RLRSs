@@ -406,6 +406,11 @@ class RolloutBuffer(BaseBuffer):
         self.reset()
 
     def reset(self) -> None:
+        if type(self.obs_shape) == dict:
+            x = 0
+            for key in self.obs_shape.keys():
+                x += self.obs_shape[key][0]
+            self.obs_shape = tuple((x,))
 
         self.observations = np.zeros(
             (self.buffer_size, self.n_envs) + self.obs_shape, dtype=np.float32
@@ -490,18 +495,28 @@ class RolloutBuffer(BaseBuffer):
         if len(log_prob.shape) == 0:
             # Reshape 0-d tensor to avoid error
             log_prob = log_prob.reshape(-1, 1)
-
+        
         # Reshape needed when using multiple envs with discrete observations
         # as numpy cannot broadcast (n_discrete,) to (n_discrete, 1)
         if isinstance(self.observation_space, spaces.Discrete):
             obs = obs.reshape((self.n_envs,) + self.obs_shape)
-
+        input(f"action shape: {action}")
         # Same reshape, for actions
         action = action.reshape((self.n_envs, self.action_dim))
+
+        if type(obs) == th.Tensor:
+            obs = obs.cpu().detach().numpy()
+        if type(action) == th.Tensor:
+            action = action.cpu().detach().numpy()
+        if type(reward) == th.Tensor:
+            reward = reward.cpu().detach().numpy()
+        if type(episode_start) == th.Tensor:
+            episode_start = episode_start.cpu().detach().numpy()
 
         self.observations[self.pos] = np.array(obs).copy()
         self.actions[self.pos] = np.array(action).copy()
         self.rewards[self.pos] = np.array(reward).copy()
+        input(f"episode starts: {self.episode_starts}, shape: {self.episode_starts.shape} \n episode start: {episode_start} episode start shape: {episode_start.shape} \n pos: {self.pos} \n")
         self.episode_starts[self.pos] = np.array(episode_start).copy()
         self.values[self.pos] = value.clone().cpu().numpy().flatten()
         self.log_probs[self.pos] = log_prob.clone().cpu().numpy()

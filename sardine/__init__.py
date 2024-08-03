@@ -7,6 +7,37 @@ from gymnasium.envs.registration import register
 from .version import __version__
 
 register(
+    id="ml-100k-v0-morl",
+    entry_point="sardine.simulator:Sardine",
+    kwargs={
+        "num_items": 1682,
+        "slate_size": 8,
+        "num_topics": 19,
+        "episode_length": 100,
+        "env_alpha": 1.0,
+        "env_propensities": None,
+        "env_offset": 0.65,
+        "env_slope": 100,
+        "env_omega": 1.0,
+        "recent_items_maxlen": 10,
+        "boredom_threshold": 5,
+        "boredom_moving_window": 5,
+        "env_embedds": "item_embeddings_ml-100k.npy",
+        "click_model": "tdPBM",
+        "rel_penalty": False,
+        "rel_threshold": None,
+        "prop_threshold": None,
+        "diversity_penalty": 1.0,
+        "diversity_threshold": 4,
+        "click_prop": 0.85,
+        "boredom_type": "user_car",
+        "boredom_reduce_rate": 0.0,
+        "user_priors": "user_priors_ml-100k.npz",
+        "morl": True,
+    }
+)
+
+register(
     id="ml-100k-v0",
     entry_point="sardine.simulator:Sardine",
     kwargs={
@@ -32,7 +63,8 @@ register(
         "click_prop": 0.85,
         "boredom_type": "user_car",
         "boredom_reduce_rate": 0.0,
-        "user_priors": "user_priors_ml-100k.npz"
+        "user_priors": "user_priors_ml-100k.npz",
+        "morl": False,
     }
 )
 

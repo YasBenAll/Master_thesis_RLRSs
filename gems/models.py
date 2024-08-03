@@ -50,6 +50,8 @@ class GeMSDecoder(nn.Module):
 
     def forward(self, proto_action):
         logits = self.model(proto_action).reshape(-1, self.slate_size, self.item_embedding_dim +1)
+        # Convert logits to the same dtype as embeddings.weight
+        logits = logits.to(self.embeddings.weight.dtype)
         item_logits = logits[:, :, :-1] @ self.embeddings.weight.detach().t()
         click_logits = logits[:, :, -1]
         return item_logits, click_logits

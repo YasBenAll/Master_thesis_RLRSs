@@ -4,8 +4,10 @@ Some code in this file has been adapted from the original code provided by the a
 (!) Limited to 2 objectives for now.
 (!) The post-processing phase has not been implemented yet.
 """
+
 import argparse
 import time
+from abc import ABC
 from copy import deepcopy
 from distutils.util import strtobool
 from typing import List, Optional, Tuple, Union
@@ -18,14 +20,14 @@ import torch as th
 import wandb
 from scipy.optimize import least_squares
 from .wrappers import IdealState, TopK, GeMS
-
-from morl_baselines.common.evaluation import log_all_multi_policy_metrics
-from morl_baselines.common.morl_algorithm import MOAgent
+from torch import nn
+from .morl.evaluation import log_all_multi_policy_metrics
+from .morl.morl_algorithm import MOAgent
 from morl_baselines.common.pareto import ParetoArchive
 from morl_baselines.common.performance_indicators import hypervolume, sparsity
-from morl_baselines.single_policy.ser.mo_ppo import MOPPO, MOPPONet, make_env
-
-
+from .mo_ppo import MOPPO, MOPPONet
+from .buffer import RolloutBuffer
+from .state_encoders import GRUStateEncoder
 def get_parser(parents = []):
     parser = argparse.ArgumentParser(parents = parents, add_help = False)
     # Training arguments
@@ -79,7 +81,7 @@ def get_parser(parents = []):
     parser.add_argument(
         "--ranker",
         type=str,
-        default="topk",
+        default="gems",
         choices=["topk", "gems"],
         help="Type of ranker for slate generation",
     )
@@ -227,7 +229,8 @@ def get_parser(parents = []):
         type=int,
         default=64,
         help="Feed-forward net dimension in the state encoder (only for Transformer).",
-    )
+    ),
+
     return parser
 
 class PerformancePredictor:
@@ -407,34 +410,6 @@ class PerformancePredictor:
         delta_predictions = np.array(delta_predictions)
         return delta_predictions, delta_predictions + policy_eval
 
-def make_env(
-    env_id,
-    idx,
-    observable,
-    ranker,
-    args,
-    decoder,
-):
-    def thunk():
-        env = gym.make(env_id)
-        env = gym.wrappers.RecordEpisodeStatistics(env)
-        if ranker == "topk":
-            # if args.item_embeddings == "ideal":
-            env = TopK(env, "ideal", min_action = 0, max_action = 1)
-            #elif args.item_embeddings == "custom":
-            # path = args.data_dir + "datasets/mf_embeddings/" + args.env_id + "_epsilon0.5_seed2023.npy"
-            # env = TopK(env, path, min_action = 0, max_action = 1)
-        elif ranker == "gems":
-            env = GeMS(env,
-                       path = args.data_dir + "GeMS/decoder/" + args.exp_name + "/" + args.run_name + ".pt",
-                       device = args.device,
-                       decoder = decoder,
-                    )
-        if observable:
-            env = IdealState(env)
-        return env
-
-    return thunk
 
 def generate_weights(delta_weight: float) -> np.ndarray:
     """Generates weights uniformly distributed over the objective dimensions. These weight vectors are separated by delta_weight distance.
@@ -511,6 +486,42 @@ class PerformanceBuffer:
                     break
 
 
+def make_env(env_id, seed, observation_shape, run_name, gamma, observable, decoder,args):
+    """Returns a function to create environments. This is because PPO works better with vectorized environments. Also, some tricks like clipping and normalizing the environments' features are applied.
+
+    Args:
+        env_id: Environment ID (for MO-Gymnasium)
+        seed: Seed
+        idx: Index of the environment
+        run_name: Name of the run
+        gamma: Discount factor
+
+    Returns:
+        A function to create environments
+    """
+
+    def thunk():
+        env = GeMS(mo_gym.make(env_id), 
+                    path = args.data_dir + "GeMS/decoder/" + args.exp_name + "/" + args.run_name + ".pt",
+                    device = args.device,
+                    decoder = decoder,
+                    )
+        env.unwrapped.reward_space = gym.spaces.Box(0, env.unwrapped.slate_size, (2,), np.float32)
+        env.unwrapped.observation_space = gym.spaces.Dict({
+            'slate': gym.spaces.MultiDiscrete([env.unwrapped.num_items for i in range(env.unwrapped.slate_size)]),
+            'clicks': gym.spaces.MultiBinary(env.unwrapped.slate_size),
+            'hist': gym.spaces.Box(low=0, high=1, shape=(env.unwrapped.num_topics,), dtype=np.float32)
+        })
+        # gym.spaces.Box(low=-np.inf, high=np.inf, shape=(observation_shape,), dtype=np.float32)
+        env.unwrapped.action_space = gym.spaces.Box(low=-np.inf, high=np.inf, shape=(observation_shape,), dtype=np.float32),
+        env.unwrapped.metadata = {'render_modes':'human'}
+        # env = mo_gym.MORecordEpisodeStatistics(env, gamma=gamma)
+        env.reset(seed=seed)
+
+
+        return env
+
+    return thunk
 
 class PGMORL(MOAgent):
     """Prediction Guided Multi-Objective Reinforcement Learning.
@@ -562,6 +573,19 @@ class PGMORL(MOAgent):
         gae_lambda: float = 0.95,
         device: Union[th.device, str] = "auto",
         group: Optional[str] = None,
+        action_space: Optional[gym.spaces.Space] = None,
+        decoder: str= 'test-run.pt',
+        observable: bool=False,
+        args: argparse.ArgumentParser = None,
+        ranker: str = 'gems',
+        envs: gym.Env = None,	
+        val_envs: gym.Env = None,
+        buffer: ABC = None,
+        num_topics: int = 19,
+        slate_size: int = 8,
+        num_items: int = None,
+
+        
     ):
         """Initializes the PGMORL agent.
 
@@ -605,13 +629,68 @@ class PGMORL(MOAgent):
         """
         super().__init__(env, device=device, seed=seed)
         # Env dimensions
-        self.tmp_env = mo_gym.make(env_id)
+
+        self.tmp_env = GeMS(mo_gym.make(env_id),
+                       path = args.data_dir + "GeMS/decoder/" + args.exp_name + "/" + args.run_name + ".pt",
+                       device = args.device,
+                       decoder = decoder,
+                    )
+
         self.extract_env_info(self.tmp_env)
         self.env_id = env_id
         self.num_envs = num_envs
+        self.action_space = self.tmp_env.action_space
         assert isinstance(self.action_space, gym.spaces.Box), "only continuous action space is supported"
         self.tmp_env.close()
         self.gamma = gamma
+
+        # GeMS 
+        self.decoder = decoder
+        self.observable = observable
+        self.observation_shape = 16 # latent dimenstion of the GeMS model
+        self.ranker = ranker
+        self.args = args
+        self.buffer = buffer
+        self.slate_size = slate_size
+        self.num_items = num_items
+        self.num_topics = num_topics
+        # self.observation_space = gym.spaces.Dict({
+        #     'slate': gym.spaces.MultiDiscrete([self.num_items for i in range(self.slate_size)]),
+        #     'clicks': gym.spaces.MultiBinary(self.slate_size),
+        #     'hist': gym.spaces.Box(low=0, high=1, shape=(self.num_topics,), dtype=np.float32)
+        # })
+        # encoded 
+        self.observation_space = gym.spaces.Box(low=-2, high=2, shape=(self.observation_shape,), dtype=np.float32)
+        self.action_space = gym.spaces.Box(low=0, high=1, shape=(self.observation_shape,), dtype=np.float32)
+        self.reward_dim = 2
+
+        # env setup
+        # input(f"attributes for env: {self.env_id, self.observation_shape, self.observable, self.ranker, self.args, self.decoder, self.args}")
+        envs = [ make_env(
+                    self.env_id,
+                    0,
+                    self.observation_shape,
+                    self.observable,
+                    self.ranker,
+                    self.args,
+                    self.decoder,
+                    self.args
+                )]
+        self.env = mo_gym.MOSyncVectorEnv(envs)
+        # )
+        # val_envs = gym.vector.SyncVectorEnv(
+        #     [
+        #         make_env(
+        #             self.env_id,
+        #             0,
+        #             self.observable,
+        #             self.ranker,
+        #             self.args,
+        #             self.decoder,
+        #             self.args,
+        #         )
+        #     ]
+        # )
 
         # EA parameters
         self.pop_size = pop_size
@@ -650,15 +729,6 @@ class PGMORL(MOAgent):
         self.gae_lambda = gae_lambda
         self.gae = gae
 
-        # env setup
-        if env is None:
-            if self.seed is not None:
-                envs = [make_env(env_id, self.seed + i, i, experiment_name, self.gamma) for i in range(self.num_envs)]
-            else:
-                envs = [make_env(env_id, i, i, experiment_name, self.gamma) for i in range(self.num_envs)]
-            self.env = mo_gym.MOSyncVectorEnv(envs)
-        else:
-            raise ValueError("Environments should be vectorized for PPO. You should provide an environment id instead.")
 
         # Logging
         self.log = log
@@ -671,6 +741,7 @@ class PGMORL(MOAgent):
                 self.action_space.shape,
                 self.reward_dim,
                 self.net_arch,
+                self.buffer
             ).to(self.device)
             for _ in range(self.pop_size)
         ]
@@ -703,8 +774,16 @@ class PGMORL(MOAgent):
                 gae=self.gae,
                 gae_lambda=self.gae_lambda,
                 rng=self.np_random,
+                observation_shape=self.observation_shape,
+                observation_space = self.observation_space,
+                action_space = self.action_space
             )
             for i in range(self.pop_size)
+        ]
+        StateEncoder = GRUStateEncoder
+        self.state_encoders = [
+                StateEncoder(self.env, args).to(args.device)
+                for _ in range(self.pop_size)
         ]
 
     @override
@@ -742,7 +821,7 @@ class PGMORL(MOAgent):
 
     def __train_all_agents(self, iteration: int, max_iterations: int):
         for i, agent in enumerate(self.agents):
-            agent.train(self.start_time, iteration, max_iterations)
+            agent.train(self.start_time, iteration, max_iterations, state_encoder=self.state_encoders[i])
 
     def __eval_all_agents(
         self,
@@ -751,10 +830,11 @@ class PGMORL(MOAgent):
         ref_point: np.ndarray,
         known_pareto_front: Optional[List[np.ndarray]] = None,
         add_to_prediction: bool = True,
+        num_envs: int = 1,
     ):
         """Evaluates all agents and store their current performances on the buffer and pareto archive."""
         for i, agent in enumerate(self.agents):
-            _, _, _, discounted_reward = agent.policy_eval(eval_env, weights=agent.np_weights, log=self.log)
+            _, _, _, discounted_reward = agent.policy_eval(eval_env, weights=agent.np_weights, log=self.log, state_encoder=self.state_encoders[i])
             # Storing current results
             self.population.add(agent, discounted_reward)
             self.archive.add(agent, discounted_reward)
@@ -871,12 +951,17 @@ class PGMORL(MOAgent):
         iteration = 0
         # Init
         current_evaluations = [np.zeros(self.reward_dim) for _ in range(len(self.agents))]
+        # state_encoder = GRUStateEncoder(self.state_dim, self.hidden_dim, self.device)
+        # input(eval_env.observation_space)
         self.__eval_all_agents(
             eval_env=eval_env,
             evaluations_before_train=current_evaluations,
             ref_point=ref_point,
             known_pareto_front=known_pareto_front,
+            num_envs = self.num_envs,
             add_to_prediction=False,
+            # state_encoder=state_encoder,
+            
         )
         self.start_time = time.time()
 
@@ -931,11 +1016,13 @@ class PGMORL(MOAgent):
         if self.log:
             self.close_wandb()
 
+
 def train(args, decoder = None):
     # Model
     run_name = f"{args.env_id}__{args.run_name}__{args.seed}__{int(time.time())}"
     print(f"Run name: {run_name}")
-
+    import torch
+    decoder = torch.load(args.data_dir+"GeMS/decoder/"+args.exp_name+"/test-run.pt").to(args.device)
 
     if args.track == "wandb":
         import wandb
@@ -949,39 +1036,16 @@ def train(args, decoder = None):
             save_code=True,
         )
 
-    # env setup
-    envs = gym.vector.SyncVectorEnv(
-        [
-            make_env(
-                args.env_id,
-                0,
-                args.observable,
-                args.ranker,
-                args,
-                decoder,
-            )
-        ]
-    )
-    val_envs = gym.vector.SyncVectorEnv(
-        [
-            make_env(
-                args.env_id,
-                0,
-                args.observable,
-                args.ranker,
-                args,
-                decoder,
-            )
-        ]
-    )
-    assert isinstance(
-        envs.single_action_space, gym.spaces.Box
-    ), "only continuous action space is supported"
 
+      
 
     model = PGMORL(
         env_id=args.env_id,
-        origin = [0.0, 0.0]
+        origin = np.array([0.0, 0.0]),
+        observable=args.observable,
+        ranker=args.ranker,
+        args=args,
+        decoder=decoder,
     )
     
-    model.train(total_timesteps=10, eval_env=val_envs, ref_point=np.array([0.0, 0.0]), known_pareto_front=None, num_eval_weights_for_eval=50)
+    model.train(total_timesteps=10, eval_env= envs, ref_point=np.array([0.0, 0.0]), known_pareto_front=None, num_eval_weights_for_eval=50)

@@ -20,7 +20,6 @@ class GeMS(gym.ActionWrapper):
             self.decoder = decoder
         self.slate_size = env.slate_size
         self.latent_dim = self.decoder.latent_dim
-
         min_action, max_action = self._get_action_bounds()
         self.action_space = gym.spaces.Box(low = np.zeros(self.latent_dim, dtype=np.float32) + min_action,
                                         high = np.zeros(self.latent_dim, dtype=np.float32) + max_action,

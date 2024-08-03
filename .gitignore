@@ -31,3 +31,4 @@ data/GeMS/checkpoints/
 *.pyc
 *.pyc
 /wandb
+/logs

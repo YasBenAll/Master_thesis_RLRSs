@@ -22,7 +22,6 @@ n_users = 100000
 
 ## Let's create the environment of our choice
 env = mo_gym.make(env_id)
-
 ## If you want to work with Fully observable state, add a wrapper to the environment
 env = IdealState(env)
 
