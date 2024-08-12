@@ -48,13 +48,13 @@ def get_parser(parents = []):
     parser.add_argument(
         "--total-timesteps",
         type=int,
-        default=500000,
+        default=100,
         help="total timesteps of the experiments",
     )
     parser.add_argument(
         "--val-interval",
         type=int,
-        default=50000,
+        default=100,
         help="Number of timesteps between validation episodes.",
     )
     parser.add_argument(
@@ -88,7 +88,7 @@ def get_parser(parents = []):
     parser.add_argument(
         "--batch-size",
         type=int,
-        default=256,
+        default=1,
         help="the batch size of sample from the reply memory",
     )
     # SAC arguments
@@ -473,7 +473,8 @@ class PerformanceBuffer:
 
         if buffer_id < 0 or buffer_id >= self.num_bins:
             return
-
+ 
+ 
         if len(self.bins[buffer_id]) < self.max_size:
             self.bins[buffer_id].append(deepcopy(candidate))
             self.bins_evals[buffer_id].append(evaluation)
@@ -558,8 +559,8 @@ class PGMORL(MOAgent):
         seed: Optional[int] = None,
         log: bool = True,
         net_arch: List = [64, 64],
-        num_minibatches: int = 32,
-        update_epochs: int = 10,
+        num_minibatches: int = 1,
+        update_epochs: int = 1,
         learning_rate: float = 3e-4,
         anneal_lr: bool = False,
         clip_coef: float = 0.2,
@@ -982,6 +983,93 @@ class PGMORL(MOAgent):
         # Evolution
         max_iterations = max(max_iterations, self.warmup_iterations + self.evolutionary_iterations)
         evolutionary_generation = 1
+
+        ############ TEMPORARY
+        max_iterations = 2
+        ############ TEMPORARY
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         while iteration < max_iterations:
             # Every evolutionary iterations, change the task - weight assignments
             self.__task_weight_selection(ref_point=ref_point)

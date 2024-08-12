@@ -10,6 +10,7 @@ import os
 def hash_config(args, index=False):
     hash_sha256 = hashlib.sha256()
     args_str = args2str(args)
+    print(args_str)
     hash_sha256.update(args_str.encode("utf-8"))
     hash_hex = str(hash_sha256.hexdigest())
     if index: # Add the args_str to the index file if it's not there already

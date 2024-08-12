@@ -21,6 +21,7 @@ from gymnasium.wrappers.record_video import RecordVideo
 from mo_gymnasium.utils import MORecordEpisodeStatistics
 from morl_baselines.common.evaluation import seed_everything
 from sardine.buffer.buffers import RolloutBuffer
+from agents.state_encoders import GRUStateEncoder
 
 def get_parser(parents = []):
     parser = argparse.ArgumentParser(parents = parents, add_help = False)
@@ -30,6 +31,7 @@ def get_parser(parents = []):
         default=True,
         nargs="?",
         const=True,
+
         help="Log results on wandb",
     ),
     parser.add_argument(
@@ -82,14 +84,13 @@ from agents.pgmorl import PGMORL, make_env
 
 if __name__ == "__main__":
     args = get_parser([get_generic_parser()]).parse_args()
-    decoder = torch.load(args.data_dir+"GeMS/decoder/"+args.exp_name+"/test-run.pt").to(args.device)
+    decoder = torch.load(args.data_dir+"GeMS/decoder/"+args.exp_name+"/003753dba396f1ffac9969f66cd2f57e407dc14ba3729b2a1921fcbd8be577a4.pt").to(args.device)
     pl.seed_everything(args.seed)
     torch.backends.cudnn.deterministic = args.torch_deterministic
     device = torch.device("cuda" if torch.cuda.is_available() and args.device == "cuda" else "cpu")
     if device.type != "cpu":
         torch.set_default_tensor_type("torch.cuda.FloatTensor")
-
-    env_id = "ml-100k-v0"
+    env_id = "SlateTopK-BoredInf-v0-num_item100-slate_size3"
     algo = PGMORL(
         env_id=env_id,
         num_envs=2,
@@ -103,7 +104,8 @@ if __name__ == "__main__":
         buffer=RolloutBuffer,
         log=args.log,
         num_items = 1682,
-        gamma = 0.8
+        gamma = 0.8,
+        device = device
     )
     print("Training PGMORL")
     eval_env = make_env(env_id=env_id, seed=42, run_name="Sardine_pgmorl", gamma=0.8, observable=False, decoder=decoder, observation_shape = 16, args = args)()
@@ -113,8 +115,11 @@ if __name__ == "__main__":
         ref_point=np.array([0.0, 0.0]),
         known_pareto_front=None,
     )
-    env = make_env(env_id, 422, 1, "PGMORL_test", gamma=0.995)()  # idx != 0 to avoid taking videos
-    
+    env = [make_env(env_id=env_id, seed=42, run_name="Sardine_pgmorl", gamma=0.8, observable=False, decoder=decoder, observation_shape = 16, args = args)]
+    env = mo_gym.MOSyncVectorEnv(env)
+    StateEncoder = GRUStateEncoder
+    state_encoder = StateEncoder(env, args)
+
     # Execution of trained policies
     for a in algo.archive.individuals:
         scalarized, discounted_scalarized, reward, discounted_reward = eval_mo(

@@ -500,7 +500,6 @@ class RolloutBuffer(BaseBuffer):
         # as numpy cannot broadcast (n_discrete,) to (n_discrete, 1)
         if isinstance(self.observation_space, spaces.Discrete):
             obs = obs.reshape((self.n_envs,) + self.obs_shape)
-        input(f"action shape: {action}")
         # Same reshape, for actions
         action = action.reshape((self.n_envs, self.action_dim))
 

@@ -19,7 +19,7 @@ def get_parser(parents = []):
     parser.add_argument(
         "--dataset",
         type=str,
-        default="ml-100k-v0_oracle_epsilon0.5_seed2023_n_users100000.pt",
+        default="SlateTopK-BoredInf-v0-num_item100-slate_size3_oracle_epsilon0.5_seed2023_n_users10seed2023.pt",
         help="Path to dataset",
     )
     parser.add_argument(
@@ -67,7 +67,7 @@ def get_parser(parents = []):
     parser.add_argument(
         "--slate-size",
         type=float,
-        default=8,
+        default=3,
         help="Size of slate.",
     ), 
     parser.add_argument(
@@ -154,7 +154,7 @@ class ReplayBufferDataModule(pl.LightningDataModule):
     def val_dataloader(self):
         return torch.utils.data.DataLoader(self.val, batch_size=self.batch_size, num_workers=self.num_workers)
 
-def train(args, config_hash):
+def train(args, config_hash, dataset = None):
     # Model
     gems = GeMS(**vars(args))
 

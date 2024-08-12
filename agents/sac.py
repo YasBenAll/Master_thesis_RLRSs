@@ -44,7 +44,7 @@ def get_parser(parents = []):
     parser.add_argument(
         "--total-timesteps",
         type=int,
-        default=500000,
+        default=10000,
         help="total timesteps of the experiments",
     )
     parser.add_argument(
@@ -248,7 +248,7 @@ def make_env(
             # env = TopK(env, path, min_action = 0, max_action = 1)
         elif ranker == "gems":
             env = GeMS(env,
-                       path = args.data_dir + "GeMS/decoder/" + args.exp_name + "/" + args.run_name + ".pt",
+                       path = args.data_dir + "GeMS/decoder/" + args.exp_name + "/" + '003753dba396f1ffac9969f66cd2f57e407dc14ba3729b2a1921fcbd8be577a4' + ".pt",
                        device = args.device,
                        decoder = decoder,
                     )
@@ -353,6 +353,8 @@ class Actor(nn.Module):
             log_prob = - log_std - .5 * torch.log(2 * torch.pi * torch.ones_like(log_std)) - .5 * eps.pow(2)
             log_prob -= torch.log(self.action_scale * (1 - y_t.pow(2)) + 1e-6)
             log_prob = log_prob.sum(1, keepdim=True)
+            log_prob = log_prob.reshape(256, 16, 1)
+            input(log_prob.shape)
             return action, log_prob
         else:
             return action
@@ -473,7 +475,6 @@ def train(args, decoder = None):
 
     # TRY NOT TO MODIFY: start the game
     obs, _ = envs.reset(seed=args.seed)
-    input(f"obs: {obs}, type: {type(obs)}")
     if not args.observable:
         actor_state_encoder.reset()
     envs.single_action_space.seed(args.seed)
@@ -497,7 +498,6 @@ def train(args, decoder = None):
                     actions = actions.cpu().numpy()
 
         # TRY NOT TO MODIFY: execute the game and log data.
-        input()
         next_obs, rewards, terminated, truncated, infos = envs.step(actions)
         if args.ranker == "gems":
             actions = actions.cpu().numpy()
@@ -709,6 +709,10 @@ def train(args, decoder = None):
                             torch.min(qf1_next_target, qf2_next_target)
                             - alpha * next_state_log_pi
                         )
+                        print(f"data.rewards shape: {data.rewards.shape}")
+                        print(f"data.dones shape: {data.dones.shape}")
+                        print(f"min_qf_next_target shape: {min_qf_next_target.shape}")
+
                         next_q_value = data.rewards.flatten() + (
                             1 - data.dones.flatten()
                         ) * args.gamma * min_qf_next_target.view(-1)

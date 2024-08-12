@@ -67,7 +67,7 @@ class PPOReplayBuffer:
             dones: Done signals
             values: Values
         """
-        self.obs[self.ptr] = obs
+        self.obs[self.ptr] = obs.detach()
         self.actions[self.ptr] = actions
         self.logprobs[self.ptr] = logprobs
         self.rewards[self.ptr] = rewards
@@ -99,7 +99,7 @@ class PPOReplayBuffer:
         Returns: A tuple of (obs, actions, logprobs, rewards, dones, values) containing all the data in the buffer.
         """
         return (
-            self.obs,
+            self.obs.detach(),
             self.actions,
             self.logprobs,
             self.rewards,
@@ -218,9 +218,9 @@ class MOPPO(MOPolicy):
         weights: np.ndarray,
         envs: gym.vector.SyncVectorEnv,
         log: bool = False,
-        steps_per_iteration: int = 2048,
+        steps_per_iteration: int = 1,
         num_minibatches: int = 32,
-        update_epochs: int = 10,
+        update_epochs: int = 1,
         learning_rate: float = 3e-4,
         gamma: float = 0.995,
         anneal_lr: bool = False,
@@ -240,6 +240,8 @@ class MOPPO(MOPolicy):
         observation_shape: gym.spaces.Dict = None,
         action_space: gym.spaces.MultiBinary = None,
         observation_space: gym.spaces.Dict = None,
+        returns: th.Tensor = th.Tensor([]),
+        advantages: th.Tensor = th.Tensor([]),
     ):
         """Multi-objective PPO.
 
@@ -304,7 +306,8 @@ class MOPPO(MOPolicy):
         self.gae_lambda = gae_lambda
         self.log = log
         self.gae = gae
-
+        self.returns = th.from_numpy(returns.detach().cpu().numpy()).to(self.device)
+        self.advantages = th.from_numpy(advantages.detach().cpu().numpy()).to(self.device)    
         self.optimizer = optim.Adam(networks.parameters(), lr=self.learning_rate, eps=1e-5)
         # self.batch = RolloutBuffer(
         #     buffer_size = self.steps_per_iteration,
@@ -356,8 +359,8 @@ class MOPPO(MOPolicy):
             self.gae,
             self.gae_lambda,
             self.device,
-            observation_space = self.observation_space,
-            action_space = self.action_space
+            self.observation_space,
+            self.action_space,
         )
 
         copied.global_step = self.global_step
@@ -472,6 +475,8 @@ class MOPPO(MOPolicy):
 
         # Scalarization of the advantages (weighted sum)
         advantages = advantages @ self.weights
+        # input(f"{returns.to("cuda")}, {advantages.to("cuda")}")
+        # th.from_numpy(returns.detach().cpu().numpy()).to(self.device)
         return returns, advantages
 
     @override
@@ -515,8 +520,10 @@ class MOPPO(MOPolicy):
         clipfracs = []
         # Perform multiple passes on the batch (that is shuffled every time)
         for epoch in range(self.update_epochs):
+            # input(self.update_epochs)
             self.np_random.shuffle(b_inds)
             for start in range(0, self.batch_size, self.minibatch_size):
+                # input(len(range(0, self.batch_size, self.minibatch_size)))
                 end = start + self.minibatch_size
                 # mb == minibatch
                 mb_inds = b_inds[start:end]
