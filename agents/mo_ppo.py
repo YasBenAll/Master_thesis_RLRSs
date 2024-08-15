@@ -242,6 +242,8 @@ class MOPPO(MOPolicy):
         observation_space: gym.spaces.Dict = None,
         returns: th.Tensor = th.Tensor([]),
         advantages: th.Tensor = th.Tensor([]),
+        global_step: int = 0,
+
     ):
         """Multi-objective PPO.
 
@@ -277,6 +279,7 @@ class MOPPO(MOPolicy):
         self.networks = networks
         self.device = device
         self.seed = seed
+        # self.global_step = global_step
         if rng is not None:
             self.np_random = rng
         else:
@@ -564,7 +567,7 @@ class MOPPO(MOPolicy):
 
                 entropy_loss = entropy.mean()
                 loss = pg_loss - self.ent_coef * entropy_loss + v_loss * self.vf_coef
-                print(f"entropy_loss: {entropy_loss}, loss: {loss}")
+                # print(f"entropy_loss: {entropy_loss}, loss: {loss}")
                 self.optimizer.zero_grad()
                 loss.backward(retain_graph=True)
                 nn.utils.clip_grad_norm_(self.networks.parameters(), self.max_grad_norm)

@@ -31,6 +31,7 @@ def eval_mo(
     render: bool = False,
     state_encoder: th.nn.Module = None, 
     num_envs: int = 1,
+    foo: bool = False
 ) -> Tuple[float, float, np.ndarray, np.ndarray]:
     """Evaluates one episode of the agent in the environment.
 
@@ -48,12 +49,16 @@ def eval_mo(
     #     [env], )
     obs, _ = env.reset()
     state_encoder.reset()
-    # input(f"obs: {obs}, type: {type(obs)}")
-    converted_obs = OrderedDict([
-        ('clicks', np.array([obs['clicks']], dtype=np.int8)),
-        ('hist', np.array([obs['hist']], dtype=np.float32)),  # Truncate or pad 'hist' to match the desired shape
-        ('slate', np.array([obs['slate']], dtype=np.int64))
-    ])
+    # if foo:
+    if type (obs) == dict:
+        converted_obs = OrderedDict([
+            ('clicks', np.array([obs['clicks']], dtype=np.int8)),
+            ('hist', np.array([obs['hist']], dtype=np.float32)),  # Truncate or pad 'hist' to match the desired shape
+            ('slate', np.array([obs['slate']], dtype=np.int64))
+        ])
+    else:
+        converted_obs = obs
+    # if foo:
     # input(f"obs: {converted_obs}, type: {type(converted_obs)}")
     obs= state_encoder.step(converted_obs)
     # input(obs)
@@ -63,17 +68,19 @@ def eval_mo(
     while not done:
         # if render:
             # env.render()
-
         obs, r, terminated, truncated, info = env.step(agent.eval(obs, state_encoder, w, num_envs))
-        converted_obs = OrderedDict([
-            ('clicks', np.array([obs['clicks']], dtype=np.int8)),
-            ('hist', np.array([obs['hist']], dtype=np.float32)),  # Truncate or pad 'hist' to match the desired shape
-            ('slate', np.array([obs['slate']], dtype=np.int64))
-        ])
+        if type (obs) == dict:
+            converted_obs = OrderedDict([
+                ('clicks', np.array([obs['clicks']], dtype=np.int8)),
+                ('hist', np.array([obs['hist']], dtype=np.float32)),  # Truncate or pad 'hist' to match the desired shape
+                ('slate', np.array([obs['slate']], dtype=np.int64))
+            ])
+        else :
+            converted_obs = obs
         obs= state_encoder.step(converted_obs)
         done = terminated or truncated
         vec_return += r
-        disc_vec_return += gamma * r
+        disc_vec_return += r
         gamma *= agent.gamma
 
     if w is None:
@@ -175,6 +182,7 @@ def log_all_multi_policy_metrics(
     global_step: int,
     n_sample_weights: int,
     ref_front: Optional[List[np.ndarray]] = None,
+    name: str = "eval",
 ):
     """Logs all metrics for multi-policy training.
 
@@ -196,17 +204,18 @@ def log_all_multi_policy_metrics(
     """
     filtered_front = list(filter_pareto_dominated(current_front))
     hv = hypervolume(hv_ref_point, filtered_front)
+    # input(f"hv: {hv}, global step {global_step}")
     sp = sparsity(filtered_front)
     eum = expected_utility(filtered_front, weights_set=equally_spaced_weights(reward_dim, n_sample_weights))
     card = cardinality(filtered_front)
 
     wandb.log(
         {
-            "eval/hypervolume": hv,
-            "eval/sparsity": sp,
-            "eval/eum": eum,
-            "eval/cardinality": card,
-            "global_step": global_step,
+            f"eval_{name}/hypervolume": hv,
+            f"eval_{name}/sparsity": sp,
+            f"eval_{name}/eum": eum,
+            f"eval_{name}/cardinality": card,
+            f"global_step_{name}": global_step,
         },
         commit=False,
     )

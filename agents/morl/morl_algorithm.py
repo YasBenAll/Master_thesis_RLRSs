@@ -74,8 +74,13 @@ class MOPolicy(ABC):
             }
         )
         for i in range(vec_return.shape[0]):
+            if i == 0:
+                # engagement
+                name = "cumulative clicks"
+            elif i == 1:
+                name = "cumulative diversity"
             wandb.log(
-                {f"eval{idstr}/vec_{i}": vec_return[i], f"eval{idstr}/discounted_vec_{i}": discounted_vec_return[i]},
+                {f"eval{idstr}/{name}": vec_return[i], f"eval{idstr}/discounted_{name}": discounted_vec_return[i]},
             )
 
     def policy_eval(

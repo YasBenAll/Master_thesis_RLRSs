@@ -43,7 +43,6 @@ class Sardine(gym.Env):
         self.num_topics = num_topics
         self.slate_size = slate_size
         self.H = episode_length
-
         ### Observation and action spaces
         self.observation_space = spaces.Dict(
             {
@@ -183,13 +182,12 @@ class Sardine(gym.Env):
         else:
             user_type = np.random.choice(["generalist", "specialist"], p = [1 - specialist_ratio, specialist_ratio])
             if user_type == "generalist":
-                samples = np.random.choice(len(self.user_priors), size=np.random.choice([7,8,9]), p=self.user_priors, replace=False)
+                samples = np.random.choice(len(self.user_priors), size=np.random.choice([4,5,6]), p=self.user_priors, replace=False)
             else:
-                samples = np.random.choice(len(self.user_priors), size=np.random.choice([3,4,5]), p=self.user_priors, replace=False)
+                samples = np.random.choice(len(self.user_priors), size=np.random.choice([1,2,3]), p=self.user_priors, replace=False)
             self.user_embedd = np.zeros(self.num_topics)
             self.user_embedd[samples] = 1
             self.user_embedd /= np.linalg.norm(self.user_embedd)
-
     def _initial_reco(self):
         """
         Initial slate recommendation with random items
