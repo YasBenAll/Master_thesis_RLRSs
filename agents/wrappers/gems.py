@@ -15,7 +15,7 @@ class GeMS(gym.ActionWrapper):
         super().__init__(env)
 
         if decoder is None:
-            self.decoder = torch.load(path).to(device)
+            self.decoder = torch.load(path, map_location=torch.device('cpu')).to(device)
         else:
             self.decoder = decoder
         self.slate_size = env.slate_size
@@ -28,9 +28,14 @@ class GeMS(gym.ActionWrapper):
     def _get_action_bounds(self) -> Tuple[np.ndarray, np.ndarray]:
         return -2, 2
 
-    def action(self, action: torch.FloatTensor) -> np.ndarray:
+    def action(self, action: torch.FloatTensor, foo=False) -> np.ndarray:
+        # print(action)
+        # print(action.shape)
+        # print(self.decoder)
+        # print(self.decoder(action))
         with torch.inference_mode():
             logits = self.decoder(action)
+        # print(logits)
         slate = logits[0].squeeze(dim=0).argmax(dim = -1).cpu().numpy()
         self.latest_slate = slate
         return slate
