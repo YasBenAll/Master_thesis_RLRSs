@@ -26,6 +26,7 @@ from .morl.morl_algorithm import MOAgent
 from morl_baselines.common.pareto import ParetoArchive
 from morl_baselines.common.performance_indicators import hypervolume, sparsity
 from .mo_ppo import MOPPO, MOPPONet
+from .mosac_continuous_action import MOSACActor, MOSoftQNetwork, MOSAC
 from .buffer import RolloutBuffer
 from .state_encoders import GRUStateEncoder
 def get_parser(parents = []):
@@ -34,7 +35,7 @@ def get_parser(parents = []):
     parser.add_argument(
         "--env-id",
         type=str,
-        default="ml-100k-v0",
+        default="SlateTopK-BoredInf-v0-num_item100-slate_size3",
         help="the id of the environment",
     )
     parser.add_argument(
@@ -54,7 +55,7 @@ def get_parser(parents = []):
     parser.add_argument(
         "--val-interval",
         type=int,
-        default=100,
+        default=10,
         help="Number of timesteps between validation episodes.",
     )
     parser.add_argument(
@@ -380,8 +381,8 @@ class PerformancePredictor:
             current_sigma *= 2.0
             current_neighb_threshold *= 2.0
 
-            print(f"current_neighb_threshold: {current_neighb_threshold}")
-            print(f"np.abs(policy_eval): {np.abs(policy_eval)}")
+            # print(f"current_neighb_threshold: {current_neighb_threshold}")
+            # print(f"np.abs(policy_eval): {np.abs(policy_eval)}")
             if current_neighb_threshold == np.inf or current_sigma == np.inf:
                 raise ValueError("Cannot find at least 4 neighbors by enlarging the neighborhood.")
 
@@ -502,7 +503,7 @@ def make_env(env_id, seed, observation_shape, run_name, gamma, observable, decod
     """
 
     def thunk():
-        env = GeMS(mo_gym.make(env_id), 
+        env = GeMS(mo_gym.make(env_id, morl=True), 
                     path = args.data_dir + "GeMS/decoder/" + args.exp_name + "/" + args.run_name + ".pt",
                     device = args.device,
                     decoder = decoder,
@@ -552,7 +553,7 @@ class PGMORL(MOAgent):
         max_weight: float = 1.0,
         delta_weight: float = 0.2,
         env=None,
-        gamma: float = 0.995,
+        gamma: float = 0.8,
         project_name: str = "MORL-baselines",
         experiment_name: str = "PGMORL",
         wandb_entity: Optional[str] = None,
@@ -584,7 +585,7 @@ class PGMORL(MOAgent):
         buffer: ABC = None,
         num_topics: int = 19,
         slate_size: int = 8,
-        num_items: int = None,
+        agent: str = 'MOPPO'
 
         
     ):
@@ -653,7 +654,6 @@ class PGMORL(MOAgent):
         self.args = args
         self.buffer = buffer
         self.slate_size = slate_size
-        self.num_items = num_items
         self.num_topics = num_topics
         # self.observation_space = gym.spaces.Dict({
         #     'slate': gym.spaces.MultiDiscrete([self.num_items for i in range(self.slate_size)]),
@@ -664,6 +664,7 @@ class PGMORL(MOAgent):
         self.observation_space = gym.spaces.Box(low=-2, high=2, shape=(self.observation_shape,), dtype=np.float32)
         self.action_space = gym.spaces.Box(low=0, high=1, shape=(self.observation_shape,), dtype=np.float32)
         self.reward_dim = 2
+        self.agent = agent
 
         # env setup
         # input(f"attributes for env: {self.env_id, self.observation_shape, self.observable, self.ranker, self.args, self.decoder, self.args}")
@@ -678,20 +679,6 @@ class PGMORL(MOAgent):
                     self.args
                 )]
         self.env = mo_gym.MOSyncVectorEnv(envs)
-        # )
-        # val_envs = gym.vector.SyncVectorEnv(
-        #     [
-        #         make_env(
-        #             self.env_id,
-        #             0,
-        #             self.observable,
-        #             self.ranker,
-        #             self.args,
-        #             self.decoder,
-        #             self.args,
-        #         )
-        #     ]
-        # )
 
         # EA parameters
         self.pop_size = pop_size
@@ -735,52 +722,103 @@ class PGMORL(MOAgent):
         self.log = log
         if self.log:
             self.setup_wandb(project_name, experiment_name, wandb_entity, group)
+        print(self.agent)
+        if self.agent == 'MOPPO':
+            self.networks = [
+                MOPPONet(
+                    self.observation_shape,
+                    self.action_space.shape,
+                    self.reward_dim,
+                    self.net_arch,
+                    self.buffer
+                ).to(self.device)
+                for _ in range(self.pop_size)
+            ]
 
-        self.networks = [
-            MOPPONet(
+        elif self.agent == 'MOSAC':
+            self.Qnetworks = [
+                MOSoftQNetwork(
+                    self.observation_shape,
+                    self.action_space.shape,
+                    self.reward_dim,
+                    self.net_arch,
+                    self.buffer
+                ).to(self.device)
+                for _ in range(self.pop_size)
+            ]
+            self.actor = MOSACActor(
                 self.observation_shape,
                 self.action_space.shape,
-                self.reward_dim,
                 self.net_arch,
                 self.buffer
             ).to(self.device)
-            for _ in range(self.pop_size)
-        ]
 
         weights = generate_weights(self.delta_weight)
         print(f"Warmup phase - sampled weights: {weights}")
 
-        self.agents = [
-            MOPPO(
-                i,
-                self.networks[i],
-                weights[i],
-                self.env,
-                log=self.log,
-                gamma=self.gamma,
-                device=self.device,
-                seed=self.seed,
-                steps_per_iteration=self.steps_per_iteration,
-                num_minibatches=self.num_minibatches,
-                update_epochs=self.update_epochs,
-                learning_rate=self.learning_rate,
-                anneal_lr=self.anneal_lr,
-                clip_coef=self.clip_coef,
-                ent_coef=self.ent_coef,
-                vf_coef=self.vf_coef,
-                clip_vloss=self.clip_vloss,
-                max_grad_norm=self.max_grad_norm,
-                norm_adv=self.norm_adv,
-                target_kl=self.target_kl,
-                gae=self.gae,
-                gae_lambda=self.gae_lambda,
-                rng=self.np_random,
-                observation_shape=self.observation_shape,
-                observation_space = self.observation_space,
-                action_space = self.action_space
-            )
-            for i in range(self.pop_size)
-        ]
+        if self.agent == 'MOPPO':
+            self.agents = [
+                MOPPO(
+                    i,
+                    self.networks[i],
+                    weights[i],
+                    self.env,
+                    log=self.log,
+                    gamma=self.gamma,
+                    device=self.device,
+                    seed=self.seed,
+                    steps_per_iteration=self.steps_per_iteration,
+                    num_minibatches=self.num_minibatches,
+                    update_epochs=self.update_epochs,
+                    learning_rate=self.learning_rate,
+                    anneal_lr=self.anneal_lr,
+                    clip_coef=self.clip_coef,
+                    ent_coef=self.ent_coef,
+                    vf_coef=self.vf_coef,
+                    clip_vloss=self.clip_vloss,
+                    max_grad_norm=self.max_grad_norm,
+                    norm_adv=self.norm_adv,
+                    target_kl=self.target_kl,
+                    gae=self.gae,
+                    gae_lambda=self.gae_lambda,
+                    rng=self.np_random,
+                    observation_shape=self.observation_shape,
+                    observation_space = self.observation_space,
+                    action_space = self.action_space
+                )
+                for i in range(self.pop_size)
+            ]
+        elif self.agent == 'MOSAC':
+            self.agents = [
+                MOSAC(
+                  i,
+                    self.networks[i],
+                    weights[i],
+                    self.env,
+                    log=self.log,
+                    gamma=self.gamma,
+                    device=self.device,
+                    seed=self.seed,
+                    steps_per_iteration=self.steps_per_iteration,
+                    num_minibatches=self.num_minibatches,
+                    update_epochs=self.update_epochs,
+                    learning_rate=self.learning_rate,
+                    anneal_lr=self.anneal_lr,
+                    clip_coef=self.clip_coef,
+                    ent_coef=self.ent_coef,
+                    vf_coef=self.vf_coef,
+                    clip_vloss=self.clip_vloss,
+                    max_grad_norm=self.max_grad_norm,
+                    norm_adv=self.norm_adv,
+                    target_kl=self.target_kl,
+                    gae=self.gae,
+                    gae_lambda=self.gae_lambda,
+                    rng=self.np_random,
+                    observation_shape=self.observation_shape,
+                    observation_space = self.observation_space,
+                    action_space = self.action_space
+                ) for i in range(self.pop_size)]
+
         StateEncoder = GRUStateEncoder
         self.state_encoders = [
                 StateEncoder(self.env, args).to(args.device)
@@ -832,6 +870,7 @@ class PGMORL(MOAgent):
         known_pareto_front: Optional[List[np.ndarray]] = None,
         add_to_prediction: bool = True,
         num_envs: int = 1,
+        name: str = 'test'
     ):
         """Evaluates all agents and store their current performances on the buffer and pareto archive."""
         for i, agent in enumerate(self.agents):
@@ -857,6 +896,7 @@ class PGMORL(MOAgent):
                 global_step=self.global_step,
                 n_sample_weights=self.num_eval_weights_for_eval,
                 ref_front=known_pareto_front,
+                name = name
             )
 
     def __task_weight_selection(self, ref_point: np.ndarray):
@@ -961,6 +1001,7 @@ class PGMORL(MOAgent):
             known_pareto_front=known_pareto_front,
             num_envs = self.num_envs,
             add_to_prediction=False,
+            name="init"
             # state_encoder=state_encoder,
             
         )
@@ -978,6 +1019,7 @@ class PGMORL(MOAgent):
             evaluations_before_train=current_evaluations,
             ref_point=ref_point,
             known_pareto_front=known_pareto_front,
+            name = 'warmup'
         )
 
         # Evolution
@@ -988,88 +1030,6 @@ class PGMORL(MOAgent):
         max_iterations = 2
         ############ TEMPORARY
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
         while iteration < max_iterations:
             # Every evolutionary iterations, change the task - weight assignments
             self.__task_weight_selection(ref_point=ref_point)
@@ -1078,7 +1038,6 @@ class PGMORL(MOAgent):
                 wandb.log(
                     {"charts/evolutionary_generation": evolutionary_generation, "global_step": self.global_step},
                 )
-
             for _ in range(self.evolutionary_iterations):
                 # Run training of every agent for evolutionary iterations.
                 if self.log:
@@ -1096,6 +1055,7 @@ class PGMORL(MOAgent):
                 evaluations_before_train=current_evaluations,
                 ref_point=ref_point,
                 known_pareto_front=known_pareto_front,
+                name=f"after evolutionary iterations{iteration}"
             )
             evolutionary_generation += 1
 

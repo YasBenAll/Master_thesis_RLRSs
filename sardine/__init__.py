@@ -66,6 +66,7 @@ register(
         "click_prop": 0.85,
         "boredom_type": "user_car",
         "boredom_reduce_rate": 0.0,
+        "morl": True,
     }
 )
 

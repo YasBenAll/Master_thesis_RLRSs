@@ -238,7 +238,7 @@ def make_env(
     decoder,
 ):
     def thunk():
-        env = gym.make(env_id)
+        env = gym.make(env_id, morl = args.morl)
         env = gym.wrappers.RecordEpisodeStatistics(env)
         if ranker == "topk":
             # if args.item_embeddings == "ideal":
