@@ -4,6 +4,7 @@ Finn.no/.DS_Store
 .DS_Store
 untracked/
 Q-learning/
+Other/
 sardine/embeddings/semi_synthetic/embeddings/
 sardine/embeddings/semi_synthetic/datasets/ml-1m/
 sardine/embeddings/semi_synthetic/datasets/ml-10M100K/
