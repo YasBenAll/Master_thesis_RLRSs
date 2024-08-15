@@ -71,12 +71,20 @@ def get_parser(parents = []):
         type=int,
         default=2,
         help="Number of layers in the state encoder.",
+    ),
+    parser.add_argument(
+        "--agent",
+        type=str,
+        required = False,
+        default="MOPPO",
+        choices=["MOSAC", "MOPPO"],
+        help="Type of agent",
     )
     return parser
 
 
 import numpy as np
-from morl_baselines.common.evaluation import eval_mo
+from agents.morl.evaluation import eval_mo
 from agents.pgmorl import PGMORL, make_env
 
 
@@ -84,7 +92,7 @@ from agents.pgmorl import PGMORL, make_env
 
 if __name__ == "__main__":
     args = get_parser([get_generic_parser()]).parse_args()
-    decoder = torch.load(args.data_dir+"GeMS/decoder/"+args.exp_name+"/003753dba396f1ffac9969f66cd2f57e407dc14ba3729b2a1921fcbd8be577a4.pt").to(args.device)
+    decoder = torch.load(args.data_dir+"GeMS/decoder/"+args.exp_name+"/003753dba396f1ffac9969f66cd2f57e407dc14ba3729b2a1921fcbd8be577a4.pt", map_location=torch.device('cpu')).to(args.device)
     pl.seed_everything(args.seed)
     torch.backends.cudnn.deterministic = args.torch_deterministic
     device = torch.device("cuda" if torch.cuda.is_available() and args.device == "cuda" else "cpu")
@@ -94,39 +102,45 @@ if __name__ == "__main__":
     algo = PGMORL(
         env_id=env_id,
         num_envs=2,
-        pop_size=6,
+        pop_size=4,
         warmup_iterations=1,
-        evolutionary_iterations=1,
-        num_weight_candidates=1,
+        evolutionary_iterations=2,
+        num_weight_candidates=7,
         origin=np.array([0.0, 0.0]),
         args=args,
         decoder=decoder,
         buffer=RolloutBuffer,
         log=args.log,
-        num_items = 1682,
         gamma = 0.8,
-        device = device
+        device = device, 
+        agent = args.agent
     )
     print("Training PGMORL")
     eval_env = make_env(env_id=env_id, seed=42, run_name="Sardine_pgmorl", gamma=0.8, observable=False, decoder=decoder, observation_shape = 16, args = args)()
     algo.train(
-        total_timesteps=int(1e5),
+        total_timesteps=int(5e6),
         eval_env=eval_env,
         ref_point=np.array([0.0, 0.0]),
         known_pareto_front=None,
     )
-    env = [make_env(env_id=env_id, seed=42, run_name="Sardine_pgmorl", gamma=0.8, observable=False, decoder=decoder, observation_shape = 16, args = args)]
-    env = mo_gym.MOSyncVectorEnv(env)
+    
+    # Evaluation
+    print("Evaluating PGMORL")
+    
+    env = make_env(env_id=env_id, seed=42, run_name="Sardine_pgmorl", gamma=0.8, observable=False, decoder=decoder, observation_shape = 16, args = args)
+    mo_sync_env = mo_gym.MOSyncVectorEnv([env])
     StateEncoder = GRUStateEncoder
-    state_encoder = StateEncoder(env, args)
+    state_encoder = StateEncoder(mo_sync_env, args)
 
     # Execution of trained policies
     for a in algo.archive.individuals:
         scalarized, discounted_scalarized, reward, discounted_reward = eval_mo(
-            agent=a, env=env, w=np.array([1.0, 1.0]), render=False
+            agent=a, env=env(), w=np.array([1., 1.]), render=False, state_encoder=state_encoder, num_envs=1, foo=True
         )
         print(f"Agent #{a.id}")
         print(f"Scalarized: {scalarized}")
         print(f"Discounted scalarized: {discounted_scalarized}")
         print(f"Vectorial: {reward}")
         print(f"Discounted vectorial: {discounted_reward}")
+
+    print("Training and evaluating PGMORL done.")
