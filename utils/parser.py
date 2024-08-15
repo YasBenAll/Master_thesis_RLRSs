@@ -48,7 +48,7 @@ def get_generic_parser(parents = []):
     parser.add_argument(
         "--device",
         type=str,
-        default="cuda",
+        default="cpu",
         help="Device for training.",
     )
     parser.add_argument(
@@ -69,5 +69,18 @@ def get_generic_parser(parents = []):
         type=str,
         default=None,
         help="the entity (team) of wandb's project",
+    )
+    parser.add_argument(
+        "--morl",
+        type=lambda x: bool(strtobool(x)),
+        default=False,
+        help="Whether to provide multiple rewards",
+    )
+    parser.add_argument(
+        "--reward",
+        type=str,
+        default="engagement",
+        choices=["engagement", "diversity", "novelty"],
+        help="Type of reward",
     )
     return parser
