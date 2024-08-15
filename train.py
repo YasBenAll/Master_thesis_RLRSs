@@ -18,7 +18,7 @@ def get_parser(parents = [], args = None):
         "--agent",
         type=str,
         required = True,
-        choices=["sac", "ddpg", "hac", "reinforce", "topk_reinforce"],
+        choices=["sac", "ppo", "random"],
         help="Type of agent",
     )
     parser.add_argument(
@@ -39,13 +39,12 @@ def get_parser(parents = [], args = None):
         parser = gems.get_parser(parents = [parser])
     if args.agent == "sac":
         parser = sac.get_parser(parents = [parser])
-
     return parser
 
 def main(parents = []):
     parser = get_parser(parents = parents)
     args = parser.parse_args()
-    decoder = None
+    decoder = torch.load(args.data_dir+"GeMS/decoder/"+args.exp_name+"/003753dba396f1ffac9969f66cd2f57e407dc14ba3729b2a1921fcbd8be577a4.pt", map_location=torch.device('cpu')).to(args.device)
 
     pl.seed_everything(args.seed)
     torch.backends.cudnn.deterministic = args.torch_deterministic
@@ -56,7 +55,8 @@ def main(parents = []):
     if args.pretrain:
         print("### Pretraining GeMS ###")
         decoder_dir = args.data_dir + "GeMS/decoder/" + args.exp_name + "/"
-        config_hash = hash_config(args)
+        # config_hash = hash_config(args)
+        config_hash = "003753dba396f1ffac9969f66cd2f57e407dc14ba3729b2a1921fcbd8be577a4"
         if Path(decoder_dir, config_hash + '.pt').is_file() and (args.run_name != 'test'):
             # checkpoint already exists.
             print("Skipping GeMS training") # since it has already been done"
@@ -87,16 +87,10 @@ def main(parents = []):
             save_code=True,
         )
     print("### Training agent ###")
+    print(decoder)
     if args.agent == "sac":
         sac.train(args, decoder = decoder)
-    elif args.agent == "ddpg":
-        ddpg.train(args, decoder = decoder)
-    elif args.agent == "hac":
-        hac.train(args)
-    elif args.agent == "reinforce":
-        reinforce.train(args, decoder = decoder)
-    elif args.agent == "topk_reinforce":
-        topk_reinforce.train(args, decoder = decoder)
+        
 
 if __name__ == "__main__":
     parser = get_generic_parser()
