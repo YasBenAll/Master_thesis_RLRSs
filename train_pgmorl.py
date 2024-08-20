@@ -80,6 +80,12 @@ def get_parser(parents = []):
         choices=["MOSAC", "MOPPO"],
         help="Type of agent",
     )
+    parser.add_argument(
+        "--total-timesteps",
+        type=int,
+        default=1e6,
+        help="Total number of timesteps for training.",
+    )
     return parser
 
 
@@ -92,19 +98,19 @@ from agents.pgmorl import PGMORL, make_env
 
 if __name__ == "__main__":
     args = get_parser([get_generic_parser()]).parse_args()
-    decoder = torch.load(args.data_dir+"GeMS/decoder/"+args.exp_name+"/003753dba396f1ffac9969f66cd2f57e407dc14ba3729b2a1921fcbd8be577a4.pt", map_location=torch.device('cpu')).to(args.device)
+    decoder = torch.load(args.data_dir+"GeMS/decoder/"+args.exp_name+"/e5938782b93eca33d86f340ac2f09eb5b79aae6379d99a20964d768861abed32.pt", map_location=torch.device('cpu')).to(args.device)
     pl.seed_everything(args.seed)
     torch.backends.cudnn.deterministic = args.torch_deterministic
     device = torch.device("cuda" if torch.cuda.is_available() and args.device == "cuda" else "cpu")
     if device.type != "cpu":
         torch.set_default_tensor_type("torch.cuda.FloatTensor")
-    env_id = "SlateTopK-BoredInf-v0-num_item100-slate_size3"
+    env_id = "SlateTopK-BoredInf-v0-num_item1000-slate_size10"
     algo = PGMORL(
         env_id=env_id,
         num_envs=2,
         pop_size=4,
-        warmup_iterations=1,
-        evolutionary_iterations=2,
+        warmup_iterations=5,
+        evolutionary_iterations=20,
         num_weight_candidates=7,
         origin=np.array([0.0, 0.0]),
         args=args,
@@ -117,11 +123,13 @@ if __name__ == "__main__":
     )
     print("Training PGMORL")
     eval_env = make_env(env_id=env_id, seed=42, run_name="Sardine_pgmorl", gamma=0.8, observable=False, decoder=decoder, observation_shape = 16, args = args)()
+    num_users_generated = 0
     algo.train(
-        total_timesteps=int(5e6),
+        total_timesteps=args.total_timesteps,
         eval_env=eval_env,
         ref_point=np.array([0.0, 0.0]),
         known_pareto_front=None,
+        num_users_generated = num_users_generated
     )
     
     # Evaluation
@@ -135,7 +143,7 @@ if __name__ == "__main__":
     # Execution of trained policies
     for a in algo.archive.individuals:
         scalarized, discounted_scalarized, reward, discounted_reward = eval_mo(
-            agent=a, env=env(), w=np.array([1., 1.]), render=False, state_encoder=state_encoder, num_envs=1, foo=True
+            agent=a, env=env(), render=False, w = np.array([.5, .5]),state_encoder=state_encoder, num_envs=1, foo=True
         )
         print(f"Agent #{a.id}")
         print(f"Scalarized: {scalarized}")

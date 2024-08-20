@@ -203,7 +203,10 @@ def log_all_multi_policy_metrics(
         ref_front: reference front, if known
     """
     filtered_front = list(filter_pareto_dominated(current_front))
-    hv = hypervolume(hv_ref_point, filtered_front)
+    # divide second column by 100 in filtered front
+    filtered_front_arr = np.array(filtered_front)
+    filtered_front_arr[:, 1] = filtered_front_arr[:, 1] / 100
+    hv = hypervolume(hv_ref_point, filtered_front_arr)
     # input(f"hv: {hv}, global step {global_step}")
     sp = sparsity(filtered_front)
     eum = expected_utility(filtered_front, weights_set=equally_spaced_weights(reward_dim, n_sample_weights))

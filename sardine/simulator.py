@@ -363,7 +363,7 @@ class Sardine(gym.Env):
         ## Update the user state for the next step
         user_state = self._update_user_state(slate, clicked_items)
         info["user_state"] = user_state
-
+        info["diversity"] = self.diversity_reward(self.item_embedd[slate])
         ## Set terminated and return
         if self.t > self.H:
             terminated = True

@@ -9,36 +9,67 @@ from .version import __version__
 num_items = [100, 200, 300, 500, 1000, 10000]
 slate_sizes = [2, 3, 4, 5, 6, 7, 8, 9, 10, 20]
 
-for num_item in num_items:
-    for slate_size in slate_sizes:
-        register(
-            id = f"SlateTopK-BoredInf-v0-num_item{num_item}-slate_size{slate_size}",
-            entry_point = "sardine.simulator:Sardine",
-            kwargs = {
-                "num_items": num_item,
-                "slate_size": slate_size,
-                "num_topics": 10,
-                "episode_length": 100,
-                "env_alpha": 1.0,
-                "env_propensities": None,
-                "env_offset": 0.65,
-                "env_slope": 100,
-                "env_omega": 0.95,
-                "recent_items_maxlen": 10,
-                "boredom_threshold": 5,
-                "boredom_moving_window": 5,
-                "env_embedds": None,
-                "click_model": "tdPBM",
-                "rel_penalty": False,
-                "rel_threshold": None,
-                "prop_threshold": None,
-                "diversity_penalty": 1.0,
-                "diversity_threshold": 4,
-                "click_prop": 0.85,
-                "boredom_type": "user_car",
-                "boredom_reduce_rate": 0.0,
-            }
-        )
+# for num_item in num_items:
+#     for slate_size in slate_sizes:
+#         register(
+#             id = f"SlateTopK-BoredInf-v0-num_item{num_item}-slate_size{slate_size}",
+#             entry_point = "sardine.simulator:Sardine",
+#             kwargs = {
+#                 "num_items": num_item,
+#                 "slate_size": slate_size,
+#                 "num_topics": 10,
+#                 "episode_length": 100,
+#                 "env_alpha": 1.0,
+#                 "env_propensities": None,
+#                 "env_offset": 0.65,
+#                 "env_slope": 100,
+#                 "env_omega": 0.95,
+#                 "recent_items_maxlen": 10,
+#                 "boredom_threshold": 5,
+#                 "boredom_moving_window": 5,
+#                 "env_embedds": None,
+#                 "click_model": "tdPBM",
+#                 "rel_penalty": False,
+#                 "rel_threshold": None,
+#                 "prop_threshold": None,
+#                 "diversity_penalty": 1.0,
+#                 "diversity_threshold": 4,
+#                 "click_prop": 0.85,
+#                 "boredom_type": "user_car",
+#                 "boredom_reduce_rate": 0.0,
+#             }
+#         )
+
+
+register(
+    id = f"SlateTopK-BoredInf-v0-num_item1000-slate_size10",
+    entry_point = "sardine.simulator:Sardine",
+    kwargs = {
+        "num_items": 1000,
+        "slate_size": 10,
+        "num_topics": 10,
+        "episode_length": 100,
+        "env_alpha": 1.0,
+        "env_propensities": None,
+        "env_offset": 0.65,
+        "env_slope": 100,
+        "env_omega": 0.95,
+        "recent_items_maxlen": 10,
+        "boredom_threshold": 5,
+        "boredom_moving_window": 5,
+        "env_embedds": None,
+        "click_model": "tdPBM",
+        "rel_penalty": False,
+        "rel_threshold": None,
+        "prop_threshold": None,
+        "diversity_penalty": 1.0,
+        "diversity_threshold": 4,
+        "click_prop": 0.85,
+        "boredom_type": "user_car",
+        "boredom_reduce_rate": 0.0,
+        "morl": True,
+    }
+)
 
 register(
     id = f"SlateTopK-BoredInf-v0-num_item100-slate_size3",

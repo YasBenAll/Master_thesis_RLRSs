@@ -544,7 +544,7 @@ class PGMORL(MOAgent):
         num_envs: int = 4,
         pop_size: int = 6,
         warmup_iterations: int = 80,
-        steps_per_iteration: int = 2048,
+        steps_per_iteration: int = 10000,
         evolutionary_iterations: int = 20,
         num_weight_candidates: int = 7,
         num_performance_buffer: int = 100,
@@ -876,6 +876,9 @@ class PGMORL(MOAgent):
         for i, agent in enumerate(self.agents):
             _, _, _, discounted_reward = agent.policy_eval(eval_env, weights=agent.np_weights, log=self.log, state_encoder=self.state_encoders[i])
             # Storing current results
+            # input(discounted_reward)
+            # divide second objective by 100
+        
             self.population.add(agent, discounted_reward)
             self.archive.add(agent, discounted_reward)
             if add_to_prediction:
@@ -976,6 +979,7 @@ class PGMORL(MOAgent):
         ref_point: np.ndarray,
         known_pareto_front: Optional[List[np.ndarray]] = None,
         num_eval_weights_for_eval: int = 50,
+        num_users_generated: int = None
     ):
         """Trains the agents."""
         if self.log:
@@ -988,7 +992,10 @@ class PGMORL(MOAgent):
                 }
             )
         self.num_eval_weights_for_eval = num_eval_weights_for_eval
+        print(f"total timesteps {total_timesteps}, steps per iteration {self.steps_per_iteration}, num envs {self.num_envs}")
         max_iterations = total_timesteps // self.steps_per_iteration // self.num_envs
+        
+        print(f"Total iterations: {max_iterations}")
         iteration = 0
         # Init
         current_evaluations = [np.zeros(self.reward_dim) for _ in range(len(self.agents))]
@@ -1024,10 +1031,11 @@ class PGMORL(MOAgent):
 
         # Evolution
         max_iterations = max(max_iterations, self.warmup_iterations + self.evolutionary_iterations)
+        input(f"max iterations {max_iterations}")
         evolutionary_generation = 1
 
         ############ TEMPORARY
-        max_iterations = 2
+        # max_iterations = 2
         ############ TEMPORARY
 
         while iteration < max_iterations:

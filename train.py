@@ -44,7 +44,7 @@ def get_parser(parents = [], args = None):
 def main(parents = []):
     parser = get_parser(parents = parents)
     args = parser.parse_args()
-    decoder = torch.load(args.data_dir+"GeMS/decoder/"+args.exp_name+"/003753dba396f1ffac9969f66cd2f57e407dc14ba3729b2a1921fcbd8be577a4.pt", map_location=torch.device('cpu')).to(args.device)
+    decoder = torch.load(args.data_dir+"GeMS/decoder/test"+"/003753dba396f1ffac9969f66cd2f57e407dc14ba3729b2a1921fcbd8be577a4.pt", map_location=torch.device('cpu')).to(args.device)
 
     pl.seed_everything(args.seed)
     torch.backends.cudnn.deterministic = args.torch_deterministic
@@ -75,9 +75,12 @@ def main(parents = []):
                 )
         else:
             decoder = gems.train(args, config_hash)
-    elif args.track == "wandb":
+    pl.seed_everything(args.seed)
+    print("seed", args.seed)
+    if args.track == "wandb":
         import wandb
         run_name = f"{args.exp_name}_{args.run_name}_seed{args.seed}_{int(time.time())}"
+        print("init wandb")
         wandb.init(
             project=args.wandb_project_name,
             entity=args.wandb_entity,
@@ -87,10 +90,8 @@ def main(parents = []):
             save_code=True,
         )
     print("### Training agent ###")
-    print(decoder)
     if args.agent == "sac":
         sac.train(args, decoder = decoder)
-        
 
 if __name__ == "__main__":
     parser = get_generic_parser()

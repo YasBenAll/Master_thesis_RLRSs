@@ -54,9 +54,12 @@ def get_parser(parents = []):
         help="Number of timesteps between validation episodes.",
     )
     parser.add_argument(
+        "--learning-starts", type=int, default=1e3, help="timestep to start learning"
+    )
+    parser.add_argument(
         "--n-val-episodes",
         type=int,
-        default=10,
+        default=20,
         help="Number of validation episodes.",
     )
     parser.add_argument(
@@ -70,9 +73,6 @@ def get_parser(parents = []):
         type=int,
         default=10,
         help="Number of timesteps to be sampled from replay buffer for each trajectory (only for POMDP)",
-    )
-    parser.add_argument(
-        "--learning-starts", type=int, default=1e4, help="timestep to start learning"
     )
     parser.add_argument(
         "--ranker",
@@ -353,14 +353,15 @@ class Actor(nn.Module):
             log_prob = - log_std - .5 * torch.log(2 * torch.pi * torch.ones_like(log_std)) - .5 * eps.pow(2)
             log_prob -= torch.log(self.action_scale * (1 - y_t.pow(2)) + 1e-6)
             log_prob = log_prob.sum(1, keepdim=True)
-            log_prob = log_prob.reshape(256, 16, 1)
-            input(log_prob.shape)
+            # log_prob = log_prob.sum(1, keepdim=True)
+            # input(f"log_prob: {log_prob.shape}")
             return action, log_prob
         else:
             return action
 
 def train(args, decoder = None):
     run_name = f"{args.env_id}__{args.run_name}__{args.seed}__{int(time.time())}"
+
     if args.track == "wandb":
         import wandb
     elif args.track == "tensorboard":
@@ -373,12 +374,19 @@ def train(args, decoder = None):
         )
 
     # CSV logger
-    csv_filename = str(args.run_name) + "-" + hash_config(args, index=True) + "-" + str(args.seed) + ".log"
+    import datetime
+    start = datetime.datetime.now()
+    csv_filename = "vooronderzoek" + "-" +str(args.run_name) + "-" + str(datetime.datetime.now()) + "-seed" + str(args.seed) + ".log"
     csv_path = "logs/" + csv_filename
     os.makedirs(os.path.dirname(csv_path), exist_ok=True)
-    csv_file = open(csv_path, "w+", newline="")
-    csv_writer = csv.writer(csv_file)
-    csv_writer.writerow(["field", "value", "step"])
+
+    with open (csv_path, "w") as f:
+        f.write(f"Start: {start}\n")
+        f.write(f"Run name: {run_name}\n")
+        f.write(f"Config: {args}\n")
+        # write row
+        f.write("field,value,step\n")
+
 
     # env setup
     envs = gym.vector.SyncVectorEnv(
@@ -509,7 +517,7 @@ def train(args, decoder = None):
                 actor_state_encoder.reset()
             ep = 0
             cum_boredom = 0
-            val_returns, val_lengths, val_boredom = [], [], []
+            val_returns, val_lengths, val_boredom, val_diversity = [], [], [], []
             val_errors, val_errors_norm = [], []
             val_slates, val_user_pref = [[] for _ in range(args.n_val_episodes)], [[] for _ in range(args.n_val_episodes)]
             val_protoactions = [[] for _ in range(args.n_val_episodes)]
@@ -564,6 +572,7 @@ def train(args, decoder = None):
                         if info is None:
                             continue
                         val_returns.append(info["episode"]["r"])
+                        val_diversity.append(info["diversity"])
                         val_lengths.append(info["episode"]["l"])
                         val_boredom.append(cum_boredom)
                         cum_boredom = 0
@@ -573,7 +582,7 @@ def train(args, decoder = None):
                     cum_boredom += (1.0 if np.sum(val_infos["bored"][0] == True) > 0 else 0.0)
 
             print(
-                f"Step {global_step}: return={np.mean(val_returns):.2f} (+- {np.std(val_returns):.2f}), boredom={np.mean(val_boredom):.2f}"
+                f"Step {global_step}: return={np.mean(val_returns):.2f} (+- {np.std(val_returns):.2f}), diversity={np.mean(val_diversity):.2f}"
             )
             if args.track == "wandb":
                 val_user_pref = np.array(val_user_pref)
@@ -595,7 +604,7 @@ def train(args, decoder = None):
                         "val_charts/q_error_norm": np.mean(val_errors_norm),
                         "val_charts/SPS": int(np.sum(val_lengths) / (time.time() - val_start_time)),
                         "val_charts/boredom": np.mean(val_boredom),
-                        "misc/diversity": average_div,
+                        "val_charts/diversity": np.mean(val_diversity),
                         "misc/user_drift": user_drift,
                         "misc/slates": slates_table,
                         "misc/categories": categories_table,
@@ -623,13 +632,17 @@ def train(args, decoder = None):
                 writer.add_scalar(
                     "val_charts/boredom", np.mean(val_boredom), global_step
                 )
-            csv_writer.writerow(["val_charts/episodic_return", np.mean(val_returns), global_step])
-            csv_writer.writerow(["val_charts/episodic_length", np.mean(val_lengths), global_step])
-            csv_writer.writerow(["val_charts/q_error", np.mean(val_errors), global_step])
-            csv_writer.writerow(["val_charts/q_error_norm", np.mean(val_errors_norm), global_step])
-            csv_writer.writerow(["val_charts/SPS", int(np.sum(val_lengths) / (time.time() - val_start_time)), global_step])
-            csv_writer.writerow(["val_charts/boredom", np.mean(val_boredom), global_step])
-            csv_file.flush()
+            with open(csv_path, "a") as csv_file:
+                # write row episodic return
+                csv_file.write(f"val_charts/episodic_return,{np.mean(val_returns)},{global_step}\n")
+                # Write row diversity
+                csv_file.write(f"val_charts/diversity,{np.mean(val_diversity)},{global_step}\n")
+            # csv_writer.writerow(["val_charts/episodic_length", np.mean(val_lengths), global_step])
+            # csv_writer.writerow(["val_charts/q_error", np.mean(val_errors), global_step])
+            # csv_writer.writerow(["val_charts/q_error_norm", np.mean(val_errors_norm), global_step])
+            # csv_writer.writerow(["val_charts/SPS", int(np.sum(val_lengths) / (time.time() - val_start_time)), global_step])
+            # csv_writer.writerow(["val_charts/boredom", np.mean(val_boredom), global_step])
+            # csv_file.flush()
 
         done = np.logical_or(terminated, truncated)
         if "final_info" in infos:
@@ -654,8 +667,9 @@ def train(args, decoder = None):
                     writer.add_scalar(
                         "train_charts/episodic_length", info["episode"]["l"], global_step
                     )
-                csv_writer.writerow(["train_charts/episodic_return", np.mean(info["episode"]["r"]), global_step])
-                csv_writer.writerow(["train_charts/episodic_length", np.mean(info["episode"]["l"]), global_step])
+                # with open(csv_path, "a") as csv_file:
+                # csv_writer.writerow(["train_charts/episodic_return", np.mean(info["episode"]["r"]), global_step])
+                # csv_writer.writerow(["train_charts/episodic_length", np.mean(info["episode"]["l"]), global_step])
 
         # TRY NOT TO MODIFY: save data to reply buffer; handle `final_observation`
         real_next_obs = next_obs.copy()
@@ -692,6 +706,7 @@ def train(args, decoder = None):
                         next_q_value = data.rewards.flatten() + (
                             1 - data.dones.flatten()
                         ) * args.gamma * qf_next_target.view(-1)
+                        # input(f"next_q_value: {next_q_value.shape}")
                     else:
                         if args.observable:
                             qf2_next_observations = data.next_observations
@@ -705,14 +720,20 @@ def train(args, decoder = None):
                             qf2_next_observations,
                             next_state_actions,
                         )
+                        # input(f"qf1_next_target: {qf1_next_target.shape}, qf2_next_target: {qf2_next_target.shape}, next_state_log_pi: {next_state_log_pi.shape}")
+                        
                         min_qf_next_target = (
                             torch.min(qf1_next_target, qf2_next_target)
                             - alpha * next_state_log_pi
                         )
+                        input(f"min_qf_next_target: {min_qf_next_target.shape}")
+                        min_qf_next_target = min_qf_next_target.sum(2, keepdim=False)
+                        input(f"min_qf_next_target after sum: {min_qf_next_target.shape}")
                         print(f"data.rewards shape: {data.rewards.shape}")
                         print(f"data.dones shape: {data.dones.shape}")
                         print(f"min_qf_next_target shape: {min_qf_next_target.shape}")
-
+                        # input(f"min_qf_next_target: {min_qf_next_target.view(-1).shape}")
+                        input(f"data rewards flatten: {data.rewards.flatten().shape}")
                         next_q_value = data.rewards.flatten() + (
                             1 - data.dones.flatten()
                         ) * args.gamma * min_qf_next_target.view(-1)
@@ -806,7 +827,7 @@ def train(args, decoder = None):
                                 args.tau * param.data + (1 - args.tau) * target_param.data
                             )
 
-            if global_step % 1000 == 0:
+            if global_step % args.val_interval == 0:
                 if args.track == "wandb":
                     metric_dict = {
                         "train_charts/qf1_values": qf1_a_values.mean().item(),
@@ -832,18 +853,21 @@ def train(args, decoder = None):
                         writer.add_scalar(
                             "losses/alpha_loss", alpha_loss.item(), global_step
                         )
-                csv_writer.writerow(["train_charts/qf1_values", qf1_a_values.mean().item(), global_step])
-                csv_writer.writerow(["losses/qf_loss", qf_loss.item() / 2.0, global_step])
-                csv_writer.writerow(["losses/actor_loss", actor_loss.item(), global_step])
-                csv_writer.writerow(["train_charts/alpha", alpha, global_step])
-                csv_writer.writerow(["train_charts/SPS", int((global_step - args.learning_starts) / (time.time() - start_time)), global_step])
-                if args.autotune:
-                    csv_writer.writerow(["losses/alpha_loss", alpha_loss.item(), global_step])
+                # csv_writer.writerow(["train_charts/qf1_values", qf1_a_values.mean().item(), global_step])
+                # csv_writer.writerow(["losses/qf_loss", qf_loss.item() / 2.0, global_step])
+                # csv_writer.writerow(["losses/actor_loss", actor_loss.item(), global_step])
+                # csv_writer.writerow(["train_charts/alpha", alpha, global_step])
+                # csv_writer.writerow(["train_charts/SPS", int((global_step - args.learning_starts) / (time.time() - start_time)), global_step])
+                # if args.autotune:
+                #     csv_writer.writerow(["losses/alpha_loss", alpha_loss.item(), global_step])
 
     envs.close()
     if args.track == "tensorboard":
         writer.close()
-    csv_file.close()
+    with open(csv_path, "a") as csv_file:
+        csv_file.write(f"Elapsed time: {datetime.datetime.now() - start}\n")
+    if args.track == "wandb":
+        wandb.finish()
 
 
 if __name__ == "__main__":
@@ -872,4 +896,6 @@ if __name__ == "__main__":
             save_code=True,
         )
 
-    train(args)
+    for i in range(args.runs):
+        train(args)
+

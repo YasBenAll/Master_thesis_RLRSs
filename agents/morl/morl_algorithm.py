@@ -80,7 +80,7 @@ class MOPolicy(ABC):
             elif i == 1:
                 name = "cumulative diversity"
             wandb.log(
-                {f"eval{idstr}/{name}": vec_return[i], f"eval{idstr}/discounted_{name}": discounted_vec_return[i]},
+                {f"eval{idstr}/{name}": vec_return[i]/100},
             )
 
     def policy_eval(
