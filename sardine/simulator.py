@@ -3,17 +3,19 @@ SARDINE
 Copyright (c) 2023-present NAVER Corp. 
 MIT license
 '''
-import numpy as np
-import os
-from itertools import combinations
-from collections import defaultdict
-from typing import List, Dict, Tuple, Literal
-from .policies import Policy
-from collections import deque, OrderedDict
-
-from .consts import DATA_REC_SIM_EMBEDDS
 
 import gymnasium as gym
+import numpy as np
+import os
+from collections import defaultdict, deque, OrderedDict
+from itertools import combinations
+from tqdm import tqdm
+from typing import List, Dict, Tuple, Literal
+from .consts import DATA_REC_SIM_EMBEDDS
+from .policies import Policy
+
+
+
 from gymnasium import spaces
 
 
@@ -393,7 +395,7 @@ class Sardine(gym.Env):
             ep_dict[k] = np.array(ep_dict[k])
         return
 
-    def generate_dataset(self, n_users : int, policy: Policy, seed: int = None, dataset_type: _DATASET_FORMATS = "dict"):
+    def generate_dataset(self, n_users : int, policy: Policy, seed: int = None, dataset_type: _DATASET_FORMATS = "dict", loading_bar = False):
         """
             Generate a dataset of trajectories from the environment.
             If dataset_type in ["sb3_replay", sb3_rollout"], dataset will be a
@@ -404,7 +406,6 @@ class Sardine(gym.Env):
 
         observation, _ = self.reset(seed = seed)
         self.action_space.seed(seed)
-        u = 0
         if dataset_type == "sb3_rollout":
             try:
                 import torch
@@ -438,6 +439,10 @@ class Sardine(gym.Env):
                                 "action": [],
                                 "reward": []}
 
+        # Initialize the progress bar
+        progress_bar = tqdm(total=n_users, disable=not loading_bar)
+
+        u = 0
         while u < n_users:
 
             action = policy.get_action(observation)
@@ -468,8 +473,12 @@ class Sardine(gym.Env):
                                 "action": [],
                                 "reward": []}
                 u += 1
+                progress_bar.update(1)
             else:
                 observation = next_obs
+
+        progress_bar.close()
+
         if dataset_type == "sb3_rollout":
             dataset.compute_returns_and_advantage(torch.zeros(1), np.array(True))
         return dataset

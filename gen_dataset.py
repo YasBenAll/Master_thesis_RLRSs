@@ -57,6 +57,12 @@ def get_parser(parents=[], args=None):
         default="sardine/SlateTopK-Bored-v0",
         help="Environment ID",
     )
+    parser.add_argument(
+        "--loading-bar",
+        type=lambda x: bool(strtobool(x)),
+        default=False,
+        help="Whether to use ideal state",
+    )
     args, _ = parser.parse_known_args(args)
     return parser
 
@@ -94,7 +100,8 @@ def generate_dataset(args):
         n_users=args.n_users, 
         policy=logging_policy, 
         seed=args.seed, 
-        dataset_type="sb3_replay"
+        dataset_type="sb3_replay",
+        loading_bar = args.loading_bar
     )
 
     save_dataset_and_embeddings(args, dataset, env, path_name)
@@ -115,7 +122,8 @@ def generate_datasets_for_multiple_configs(args):
                 n_users=args.n_users, 
                 policy=logging_policy, 
                 seed=args.seed, 
-                dataset_type="sb3_replay"
+                dataset_type="sb3_replay",
+                loading_bar=args.loading_bar
             )
 
             env_id_str = re.sub(r'[\W_]+', '', env_id)

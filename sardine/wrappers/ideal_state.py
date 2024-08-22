@@ -5,11 +5,12 @@ MIT license
 '''
 
 """Fully observable MDP with ideal state."""
-from typing import Tuple, Dict, Literal
-from ..policies import Policy
-from collections import OrderedDict
-import numpy as np
 import gymnasium as gym
+import numpy as np
+from collections import OrderedDict
+from ..policies import Policy
+from tqdm import tqdm
+from typing import Tuple, Dict, Literal
 
 _DATASET_FORMATS = Literal["dict", "sb3_rollout", "sb3_replay"]
 
@@ -52,7 +53,7 @@ class IdealState(gym.Wrapper):
             ep_dict[k] = np.array(ep_dict[k])
         return
     
-    def generate_dataset(self, n_users, policy: Policy, seed = None, dataset_type: _DATASET_FORMATS = "dict"):
+    def generate_dataset(self, n_users, policy: Policy, seed = None, dataset_type: _DATASET_FORMATS = "dict", loading_bar = False):
         """
             Generate a dataset of trajectories from the environment.
             If sb3_rollout_buffer is toggled, the format will be a RolloutBuffer
@@ -63,8 +64,6 @@ class IdealState(gym.Wrapper):
 
         observation, _ = self.reset(seed = seed)
         self.action_space.seed(seed)
-        u = 0
-        print(f"user {u+1}/{n_users}")
         if dataset_type == "sb3_rollout":
             ## TOCHANGE
             try:
@@ -96,6 +95,11 @@ class IdealState(gym.Wrapper):
                 handle_timeout_termination = False)
         else:
             episode_dict = {"observation": [], "action": [], "reward": []}
+
+        # Initialize the progress bar
+        progress_bar = tqdm(total=n_users, disable=not loading_bar)
+
+        u = 0
         while u < n_users:
             action = policy.get_action(observation)
             next_obs, reward, terminated, truncated, info = self.step(action)
@@ -117,9 +121,12 @@ class IdealState(gym.Wrapper):
                     dataset[u] = episode_dict
                     episode_dict = {"observation": [], "action": [], "reward": []}
                 u += 1
-                print(f"user {u}/{n_users}")
+                progress_bar.update(1)
             else:
                 observation = next_obs
+
+        progress_bar.close()
+
         if dataset_type == "sb3_rollout":
             dataset.compute_returns_and_advantage(torch.zeros(1), np.array(True))
         return dataset
