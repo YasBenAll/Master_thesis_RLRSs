@@ -377,9 +377,12 @@ def train(args, decoder = None):
     import datetime
     start = datetime.datetime.now()
     csv_filename = "vooronderzoek" + "-" +str(args.run_name) + "-" + str(datetime.datetime.now()) + "-seed" + str(args.seed) + ".log"
+    # remove special characters
+    import re
+    csv_filename = re.sub(r"[^a-zA-Z0-9]+", '-', csv_filename)
+
     csv_path = "logs/" + csv_filename
     os.makedirs(os.path.dirname(csv_path), exist_ok=True)
-
     with open (csv_path, "w") as f:
         f.write(f"Start: {start}\n")
         f.write(f"Run name: {run_name}\n")

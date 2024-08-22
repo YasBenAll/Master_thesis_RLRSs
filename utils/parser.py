@@ -10,7 +10,7 @@ def get_generic_parser(parents = []):
     parser.add_argument(
         "--data_dir",
         type=str,
-        default=os.path.join(os.getenv("ROOT_DIR"),"data/"),
+        default=os.path.join(os.getenv("ROOT_DIR"),"data"),
         help="Path to data directory.",
     )
     parser.add_argument(
@@ -34,7 +34,7 @@ def get_generic_parser(parents = []):
     parser.add_argument(
         "--run-name",
         type=str,
-        default="slate_size3",
+        default="slate_size?",
         help="the name of this run",
     )
     parser.add_argument(

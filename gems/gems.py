@@ -19,7 +19,7 @@ def get_parser(parents = []):
     parser.add_argument(
         "--dataset",
         type=str,
-        default="SlateTopK-BoredInf-v0-num_item100-slate_size3_oracle_epsilon0.5_seed2023_n_users10seed2023.pt",
+        default="sardine/SlateTopK-Bored-v0.pt",
         help="Path to dataset",
     )
     parser.add_argument(
@@ -56,13 +56,13 @@ def get_parser(parents = []):
         "--lambda-KL",
         type=float,
         default=1.0,
-        help="KL loss weight in GeMS.",
+        help="KL loss weight in GeMS. (beta)",
     )
     parser.add_argument(
         "--lambda-click",
         type=float,
         default=0.2,
-        help="Click loss weight in GeMS.",
+        help="Click loss weight in GeMS. (lambda)",
     ),
     parser.add_argument(
         "--slate-size",
