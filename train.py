@@ -3,6 +3,7 @@ from distutils.util import strtobool
 from pathlib import Path
 import time
 
+import os
 import pytorch_lightning as pl
 import torch
 import random
@@ -29,6 +30,12 @@ def get_parser(parents = [], args = None):
         const=True,
         help="Whether to pretrain GeMS",
     )
+    parser.add_argument(
+        "--decoder-name",
+        type=str,
+        default="4910f9a5edb799495fcc6f154fe2ebf0cef4a44f6ceb59ce5e44a8d1ba093042",
+        help="Name of the decoder",	
+    )
 
     if args is not None:
         args, _ = parser.parse_known_args(args)
@@ -44,39 +51,15 @@ def get_parser(parents = [], args = None):
 def main(parents = []):
     parser = get_parser(parents = parents)
     args = parser.parse_args()
-    decoder = torch.load(args.data_dir+"GeMS/decoder/test"+"/003753dba396f1ffac9969f66cd2f57e407dc14ba3729b2a1921fcbd8be577a4.pt", map_location=torch.device('cpu')).to(args.device)
+    decoder = torch.load(os.path.join(args.data_dir, "GeMS", "decoder", args.exp_name,args.decoder_name+".pt"), map_location=torch.device('cpu')).to(args.device)
 
     pl.seed_everything(args.seed)
     torch.backends.cudnn.deterministic = args.torch_deterministic
     device = torch.device("cuda" if torch.cuda.is_available() and args.device == "cuda" else "cpu")
     if device.type != "cpu":
-        torch.set_default_tensor_type("torch.cuda.FloatTensor")
+        torch.set_default_device(device)
+        torch.set_default_dtype(torch.float32)
 
-    if args.pretrain:
-        print("### Pretraining GeMS ###")
-        decoder_dir = args.data_dir + "GeMS/decoder/" + args.exp_name + "/"
-        # config_hash = hash_config(args)
-        config_hash = "003753dba396f1ffac9969f66cd2f57e407dc14ba3729b2a1921fcbd8be577a4"
-        if Path(decoder_dir, config_hash + '.pt').is_file() and (args.run_name != 'test'):
-            # checkpoint already exists.
-            print("Skipping GeMS training") # since it has already been done"
-            decoder = torch.load(decoder_dir + config_hash + ".pt").to(device)
-
-            if args.track == "wandb":
-                import wandb
-                run_name = f"{args.exp_name}_{args.run_name}_seed{args.seed}_{int(time.time())}"
-                wandb.init(
-                    project=args.wandb_project_name,
-                    entity=args.wandb_entity,
-                    config=vars(args),
-                    name=run_name,
-                    monitor_gym=False,
-                    save_code=True,
-                )
-        else:
-            decoder = gems.train(args, config_hash)
-    pl.seed_everything(args.seed)
-    print("seed", args.seed)
     if args.track == "wandb":
         import wandb
         run_name = f"{args.exp_name}_{args.run_name}_seed{args.seed}_{int(time.time())}"
@@ -90,6 +73,7 @@ def main(parents = []):
             save_code=True,
         )
     print("### Training agent ###")
+
     if args.agent == "sac":
         sac.train(args, decoder = decoder)
 
