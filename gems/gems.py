@@ -66,7 +66,7 @@ def get_parser(parents = []):
     ),
     parser.add_argument(
         "--slate-size",
-        type=float,
+        type=int,
         default=3,
         help="Size of slate.",
     ), 
@@ -129,7 +129,7 @@ class ReplayBufferDataModule(pl.LightningDataModule):
         self.num_workers = num_workers
 
     def setup(self, stage: str):
-        dataset = torch.load(self.data_dir + "datasets/" + self.dataset, map_location = self.device)
+        dataset = torch.load(os.path.join(self.data_dir, "datasets", self.dataset), map_location = self.device)
         dataset_len = dataset.size()
         perm = np.random.permutation(dataset_len)
         train_inds = perm[dataset_len // (self.train_to_val_ratio + 1):]
@@ -156,6 +156,7 @@ class ReplayBufferDataModule(pl.LightningDataModule):
 
 def train(args, config_hash, dataset = None):
     # Model
+
     gems = GeMS(**vars(args))
 
     # Loggers
@@ -168,7 +169,7 @@ def train(args, config_hash, dataset = None):
                                     config=vars(args),
                                     name=f"{args.exp_name}_{args.run_name}_seed{args.seed}_{int(time.time())}",)
         loggers.append(wandb_logger)
-    csv_logger = CSVLogger(args.data_dir + "GeMS/results/", 
+    csv_logger = CSVLogger(os.path.join(args.data_dir, "GeMS", "results"), 
                             name=config_hash,
                             flush_logs_every_n_steps=1000,
                         )
@@ -181,7 +182,7 @@ def train(args, config_hash, dataset = None):
     #                             accelerator = "gpu" if args.device == "cuda" else "cpu", 
     #                             max_epochs = args.max_epochs, num_sanity_val_steps=0)
     # else :
-    ckpt_dir =  args.data_dir + "GeMS/checkpoints/" + args.exp_name + "/"
+    ckpt_dir =  os.path.join(args.data_dir, "GeMS", "checkpoints", args.exp_name)
     Path(ckpt_dir).mkdir(parents=True, exist_ok=True)
     model_checkpoint = ModelCheckpoint(monitor = 'val/loss', dirpath = ckpt_dir, filename = config_hash)
 
@@ -202,7 +203,7 @@ def train(args, config_hash, dataset = None):
     end_time = time.time()
     
     # Save time
-    with open(args.data_dir + "GeMS/results/" + config_hash + ".txt", "w") as f:
+    with open(os.path.join(args.data_dir, "GeMS", "results", config_hash + ".txt"), "w") as f:
         f.write(f"dataset: {args.dataset}\n")
         f.write(f"Time taken: {end_time - start_time}\n")
         f.write(f"Time taken per epoch: {(end_time - start_time) / args.max_epochs}\n")
@@ -211,10 +212,11 @@ def train(args, config_hash, dataset = None):
         
 
     # Save state_dict of decoder for downstream RL training
-    gems = GeMS.load_from_checkpoint(ckpt_dir + config_hash + ".ckpt", **vars(args))
-    decoder_dir = args.data_dir + "GeMS/decoder/" + args.exp_name + "/"
+    gems = GeMS.load_from_checkpoint(os.path.join(ckpt_dir, config_hash + ".ckpt"), **vars(args))
+    decoder_dir = os.path.join(args.data_dir, "GeMS", "decoder", args.exp_name)
     Path(decoder_dir).mkdir(parents=True, exist_ok=True)
-    torch.save(gems.decoder, decoder_dir + config_hash +".pt")
+    print("Saving decoder to ", os.path.join(decoder_dir, config_hash +".pt"))
+    torch.save(gems.decoder, os.path.join(decoder_dir, config_hash +".pt"))
     return gems.decoder.to(args.device)
 
 if __name__ == "__main__":

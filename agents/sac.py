@@ -729,14 +729,7 @@ def train(args, decoder = None):
                             torch.min(qf1_next_target, qf2_next_target)
                             - alpha * next_state_log_pi
                         )
-                        input(f"min_qf_next_target: {min_qf_next_target.shape}")
                         min_qf_next_target = min_qf_next_target.sum(2, keepdim=False)
-                        input(f"min_qf_next_target after sum: {min_qf_next_target.shape}")
-                        print(f"data.rewards shape: {data.rewards.shape}")
-                        print(f"data.dones shape: {data.dones.shape}")
-                        print(f"min_qf_next_target shape: {min_qf_next_target.shape}")
-                        # input(f"min_qf_next_target: {min_qf_next_target.view(-1).shape}")
-                        input(f"data rewards flatten: {data.rewards.flatten().shape}")
                         next_q_value = data.rewards.flatten() + (
                             1 - data.dones.flatten()
                         ) * args.gamma * min_qf_next_target.view(-1)
