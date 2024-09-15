@@ -18,7 +18,7 @@ class TopK(gym.ActionWrapper):
         super().__init__(env)
 
         self.env = env
-        self.slate_size = env.slate_size
+        self.slate_size = env.unwrapped.slate_size
         self.embedd_dim = env.num_topics
 
         if embeddings == "ideal":

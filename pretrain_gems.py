@@ -33,7 +33,6 @@ def get_parser(parents = [], args = None):
 if __name__ == "__main__":
     parser = get_parser(parents = [get_generic_parser(), gems.get_parser()])
     args = parser.parse_args()
-   
     start_time = time.time()
 
     config_hash = hash_config(args, index=True)
@@ -48,16 +47,25 @@ if __name__ == "__main__":
     print("### Pretraining GeMS ###")
     dataset_name = args.dataset
     if args.multi:
-        num_items = [10000]
-        slate_sizes = [10]
-        for num_item in num_items:
-            for slate_size in slate_sizes:
-                args.dataset=f"{args.dataset_multi}-num_item{num_item}-slate_size{slate_size}_oracle_epsilon0.5_seed2023_n_users100000seed2023.pt"
-                args.slate_size = slate_size
-
-                decoder = gems.train(args, config_hash)
+        num_items = [100, 500, 1000]
+        slate_sizes = [3, 5, 10, 20]
+        kl_divergences = [0.1, 0.2, 0.5, 1.0, 2.0]
+        lambda_clicks = [0.0, 0.3,0.5, 1.0]
+        latent_dims = [16, 32]
+        for latent_dim in latent_dims:
+            for lambd in lambda_clicks:
+                for beta in kl_divergences:
+                    for num_item in num_items:
+                        for slate_size in slate_sizes:
+                            args.dataset=f"{args.dataset_multi}-num_item{num_item}-slate_size{slate_size}_oracle_epsilon0.5_seed2023_n_users100000seed2023.pt"
+                            args.slate_size = slate_size
+                            args.lambda_KL = beta
+                            args.lambda_click = lambd
+                            args.laten_dim = latent_dim
+                            config_hash = hash_config(args, index=True)
+                            print(f"Training GeMS with config: {config_hash}")
+                            decoder = gems.train(args, config_hash)
     else:
-        args.dataset="sardine/SlateTopK-Bored-v0"
         decoder = gems.train(args, config_hash)
     
     # set precision to 2 decimal places

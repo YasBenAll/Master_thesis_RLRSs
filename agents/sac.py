@@ -584,6 +584,14 @@ def train(args, decoder = None):
                 else:
                     cum_boredom += (1.0 if np.sum(val_infos["bored"][0] == True) > 0 else 0.0)
 
+                # save sac model for later analysis 
+                if args.save_sac_model:
+                    if ep == args.n_val_episodes:
+                        torch.save(actor, f"actor_{global_step}.pt")
+                        torch.save(qf1, f"critic_{global_step}.pt")
+                        torch.save(qf1_target, f"critic_target_{global_step}.pt")
+
+
             print(
                 f"Step {global_step}: return={np.mean(val_returns):.2f} (+- {np.std(val_returns):.2f}), diversity={np.mean(val_diversity):.2f}"
             )

@@ -158,7 +158,7 @@ def train(args, config_hash, dataset = None):
     # Model
 
     gems = GeMS(**vars(args))
-
+    print(gems)
     # Loggers
     loggers = []
     if args.track == "wandb":
@@ -185,7 +185,7 @@ def train(args, config_hash, dataset = None):
     ckpt_dir =  os.path.join(args.data_dir, "GeMS", "checkpoints", args.exp_name)
     Path(ckpt_dir).mkdir(parents=True, exist_ok=True)
     model_checkpoint = ModelCheckpoint(monitor = 'val/loss', dirpath = ckpt_dir, filename = config_hash)
-
+    print(args)
     trainer = pl.Trainer(logger=loggers, enable_progress_bar = False, devices = 1,
                             accelerator = "gpu" if args.device == "cuda" else "cpu", 
                             callbacks = [model_checkpoint], max_epochs = args.max_epochs)
