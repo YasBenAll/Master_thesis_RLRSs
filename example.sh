@@ -14,15 +14,12 @@ mkdir $HOME/experiments
 cd $HOME/experiments
 
 # create a virtual environment in /var/scratch/$USER/
-python310 -m venv /var/scratch/$USER/venv
+python3 -m venv /var/scratch/$USER/venv
 source /var/scratch/$USER/venv/bin/activate
+
 # Install the required packages
 pip install --upgrade pip
 pip install -r /home/yal700/git/Master_thesis_RLRSs/requirements.txt
-
-python -V
-python3 -V 
-pip -V
 
 # Simple trick to create a unique directory for each run of the script
 echo $$
