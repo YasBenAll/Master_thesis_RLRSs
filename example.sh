@@ -13,7 +13,7 @@
 mkdir $HOME/experiments
 cd $HOME/experiments
 
-python3.10 -m venv <name
+python3 -m venv <name
 source venv/bin/activate
 # bin/pip install -r requirements.txt
 
