@@ -17,6 +17,7 @@ cd $HOME/experiments
 python3 -m venv /var/scratch/$USER/venv
 source /var/scratch/$USER/venv/bin/activate
 # Install the required packages
+pip install --upgrade pip
 pip install -r /home/yal700/git/Master_thesis_RLRSs/requirements.txt
 
 
