@@ -18,8 +18,8 @@ python3.10 -m venv /var/scratch/$USER/venv
 source /var/scratch/$USER/venv/bin/activate
 
 # Install the required packages
-pip install --upgrade pip
-pip install -r /home/yal700/git/Master_thesis_RLRSs/requirements.txt
+python -m pip install --upgrade pip
+python -m pip install -r /home/yal700/git/Master_thesis_RLRSs/requirements.txt
 
 # Simple trick to create a unique directory for each run of the script
 echo $$
