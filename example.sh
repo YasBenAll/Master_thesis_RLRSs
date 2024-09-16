@@ -15,7 +15,7 @@ cd $HOME/experiments
 
 # Simple trick to create a unique directory for each run of the script
 echo $$
-mkdir o`echo $$
+mkdir o`echo $$`
 cd o`echo $$`
 
 # Run the actual experiment.
