@@ -16,6 +16,7 @@ cd $HOME/experiments
 # create a virtual environment in /var/scratch/$USER/
 python3.10 -m venv /var/scratch/$USER/venv
 source /var/scratch/$USER/venv/bin/activate
+python -V
 
 # Install the required packages
 python -m pip install --upgrade pip
