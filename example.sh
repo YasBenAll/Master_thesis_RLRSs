@@ -16,6 +16,8 @@ cd $HOME/experiments
 # create a virtual environment in /var/scratch/$USER/
 python3 -m venv /var/scratch/$USER/venv
 source /var/scratch/$USER/venv/bin/activate
+# Install the required packages
+pip install -r /home/yal700/git/Master_thesis_RLRSs/requirements.txt
 
 
 # Simple trick to create a unique directory for each run of the script
