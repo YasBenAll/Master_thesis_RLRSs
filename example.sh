@@ -13,6 +13,9 @@
 mkdir $HOME/experiments
 cd $HOME/experiments
 
+# get python 3.10
+module load python/3.10.11
+
 # create a virtual environment in /var/scratch/$USER/
 python3 -m venv /var/scratch/$USER/venv
 source /var/scratch/$USER/venv/bin/activate
