@@ -14,7 +14,7 @@ mkdir $HOME/experiments
 cd $HOME/experiments
 
 # create a virtual environment in /var/scratch/$USER/
-python3 -m venv /var/scratch/$USER/venv
+python3.10 -m venv /var/scratch/$USER/venv
 source /var/scratch/$USER/venv/bin/activate
 # Install the required packages
 pip install --upgrade pip
