@@ -13,9 +13,9 @@
 mkdir $HOME/experiments
 cd $HOME/experiments
 
-python3 -m venv <name
-source venv/bin/activate
-# bin/pip install -r requirements.txt
+# create a virtual environment in /var/scratch/$USER/
+python3 -m venv /var/scratch/$USER/venv
+source /var/scratch/$USER/venv/bin/activate
 
 
 # Simple trick to create a unique directory for each run of the script
