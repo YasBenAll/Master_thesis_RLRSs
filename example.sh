@@ -10,6 +10,7 @@ echo "Starting job $SLURM_JOB_ID"
 module load cuda11.7/toolkit/11.7
 module load cuda11.7/toolkit
 module load cuDNN/cuda11.7
+nvidia-smi
 
 # Base directory for the experiment
 mkdir $HOME/experiments
