@@ -12,9 +12,8 @@ module load cuda11.7/toolkit
 module load cuDNN/cuda11.7
 nvidia-smi
 
-# Base directory for the experiment
-mkdir $HOME/experiments
-cd $HOME/experiments
+module avail cuda
+
 
 # create a virtual environment in /var/scratch/$USER/
 python3.10 -m venv /var/scratch/$USER/venv
