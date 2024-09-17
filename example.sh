@@ -2,12 +2,15 @@
 # SBATCH --job-name=test
 # SBATCH --time=00:01:00
 # SBATCH -N 1
-# SSBATCH -C A4000
 # SBATCH --ntasks-per-node=1
 # SBATCH --partition=defq
 # SBATCH --gres=gpu:1
+
+
 echo "Starting job $SLURM_JOB_ID"
 # Load GPU drivers
+. /etc/bashrc
+. ~/.bashrc
 module load cuda11.7/toolkit/11.7
 module load cuda11.7/toolkit
 module load cuDNN/cuda11.7
