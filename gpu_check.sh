@@ -1,12 +1,12 @@
 #!/bin/bash
 # SBATCH --job-name=test
-# SBATCH --time=00:01:00
+# SBATCH --time=00:00:30
 # SBATCH -N 1
 # SBATCH -C A2
 # SBATCH --ntasks-per-node=1
-# SBATCH --partition=defq*
+# SBATCH --partition=defq
 # SBATCH --gres=gpu:1
-
+# SLURM -C A2
 
 echo "Starting job $SLURM_JOB_ID"
 
