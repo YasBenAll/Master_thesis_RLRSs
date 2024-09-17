@@ -7,7 +7,7 @@
 # SBATCH --gres=gpu:1
 echo "Starting job $SLURM_JOB_ID"
 # Load GPU drivers
-module load cuda11.7/toolkit/11.7
+module load cuda11.7/toolkit
 
 # Base directory for the experiment
 mkdir $HOME/experiments
