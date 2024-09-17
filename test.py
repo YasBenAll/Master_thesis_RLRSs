@@ -1,7 +1,7 @@
 import torch
 
 import time 
-time.sleep(60)
+time.sleep(15)
 
 print("Output python file:")
 print(f"Torch version: {torch.__version__}")
