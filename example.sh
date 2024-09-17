@@ -7,7 +7,7 @@
 # SBATCH --gres=gpu:1
 
 # Load GPU drivers
-module load cuda11.3/toolkit/11.3.1
+module load cuda11.8/toolkit/11.8.1
 
 # Base directory for the experiment
 mkdir $HOME/experiments
