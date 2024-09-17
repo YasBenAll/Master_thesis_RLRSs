@@ -4,7 +4,7 @@
 # SBATCH -N 1
 # SBATCH -C A4000
 # SBATCH --ntasks-per-node=1
-# SBATCH --partition=defq
+# SBATCH --partition=defq*
 # SBATCH --gres=gpu:1
 
 
