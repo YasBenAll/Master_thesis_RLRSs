@@ -4,7 +4,7 @@
 # SBATCH -N 1
 # SBATCH -C gpunode
 # SBATCH --ntasks-per-node=1
-# SBATCH --partition=defq*
+# SBATCH --partition=defq
 # SBATCH --gres=gpu:1
 
 
