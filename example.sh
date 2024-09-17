@@ -9,7 +9,7 @@ echo "Starting job $SLURM_JOB_ID"
 # Load GPU drivers
 module load cuda11.7/toolkit/11.7
 module load cuda11.7/toolkit
-module load cudnn/cuda11.7
+module load ccuDNN/cuda11.7
 
 # Base directory for the experiment
 mkdir $HOME/experiments
