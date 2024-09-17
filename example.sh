@@ -9,12 +9,14 @@
 
 
 echo "Starting job $SLURM_JOB_ID"
+
 # Load GPU drivers
 . /etc/bashrc
 . ~/.bashrc
 module load cuda11.7/toolkit/11.7
-module load cuda11.7/toolkit
-module load cuDNN/cuda11.7
+
+./cuda-app opts
+
 nvidia-smi
 
 module avail cuda
