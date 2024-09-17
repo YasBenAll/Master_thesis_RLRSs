@@ -1,5 +1,8 @@
 import torch
 
+import time 
+time.sleep(10)
+
 print("Output python file:")
 print(f"Torch version: {torch.__version__}")
 print(f"Is Cuda available: {str(torch.cuda.is_available())}")
