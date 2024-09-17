@@ -17,9 +17,6 @@ module load cuda11.7/toolkit/11.7
 
 nvidia-smi
 
-module avail cuda
-
-
 # create a virtual environment in /var/scratch/$USER/
 python3.10 -m venv /var/scratch/$USER/venv
 source /var/scratch/$USER/venv/bin/activate
