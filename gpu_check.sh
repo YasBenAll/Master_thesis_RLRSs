@@ -2,7 +2,7 @@
 # SBATCH --job-name=test
 # SBATCH --time=00:01:00
 # SBATCH -N 1
-# SBATCH -C gpunode
+# SBATCH -C A2
 # SBATCH --ntasks-per-node=1
 # SBATCH --partition=defq*
 # SBATCH --gres=gpu:1
