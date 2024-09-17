@@ -15,8 +15,6 @@ echo "Starting job $SLURM_JOB_ID"
 . ~/.bashrc
 module load cuda11.7/toolkit/11.7
 
-./cuda-app opts
-
 nvidia-smi
 
 module avail cuda
