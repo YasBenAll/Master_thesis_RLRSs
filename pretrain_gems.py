@@ -62,11 +62,11 @@ if __name__ == "__main__":
                 for beta in kl_divergences:
                     for num_item in num_items:
                         for slate_size in slate_sizes:
-                            args.dataset=f"{args.dataset_multi}-num_item{num_item}-slate_size{slate_size}_oracle_epsilon0.5_seed2023_n_users100000seed2023.pt"
+                            args.dataset=f"{args.dataset_multi}-num_item{num_item}-slate_size{slate_size}_oracle_epsilon0.5_seed2023_n_users10seed2023.pt"
                             args.slate_size = slate_size
                             args.lambda_KL = beta
                             args.lambda_click = lambd
-                            args.laten_dim = latent_dim
+                            args.latent_dim = latent_dim
                             config_hash = hash_config(args, index=True)
                             print(f"Training GeMS with config: {config_hash}")
                             decoder = gems.train(args, config_hash)

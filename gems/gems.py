@@ -216,7 +216,7 @@ def train(args, config_hash, dataset = None):
     decoder_dir = os.path.join(args.data_dir, "GeMS", "decoder", args.exp_name)
     Path(decoder_dir).mkdir(parents=True, exist_ok=True)
     print("Saving decoder to ", os.path.join(decoder_dir, config_hash +".pt"))
-    torch.save(gems.decoder, os.path.join(decoder_dir, config_hash +".pt"))
+    torch.save(gems.decoder, os.path.join(decoder_dir, args.dataset+ f"kl_divergences{args.lambda_KL}_lambda_clicks{args.lambda_click}_latentdim_{args.latent_dim}" +".pt"))
     return gems.decoder.to(args.device)
 
 if __name__ == "__main__":
