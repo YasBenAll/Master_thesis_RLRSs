@@ -292,6 +292,7 @@ class MOPPO(MOPolicy):
         self.steps_per_iteration = steps_per_iteration
         self.np_weights = weights
         self.weights = th.from_numpy(weights).to(self.device)
+
         self.batch_size = int(self.num_envs * self.steps_per_iteration)
         self.num_minibatches = num_minibatches
         self.minibatch_size = int(self.batch_size // num_minibatches)

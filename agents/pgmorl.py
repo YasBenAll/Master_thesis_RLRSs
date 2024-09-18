@@ -734,25 +734,6 @@ class PGMORL(MOAgent):
                 ).to(self.device)
                 for _ in range(self.pop_size)
             ]
-
-        elif self.agent == 'MOSAC':
-            self.Qnetworks = [
-                MOSoftQNetwork(
-                    self.observation_shape,
-                    self.action_space.shape,
-                    self.reward_dim,
-                    self.net_arch,
-                    self.buffer
-                ).to(self.device)
-                for _ in range(self.pop_size)
-            ]
-            self.actor = MOSACActor(
-                self.observation_shape,
-                self.action_space.shape,
-                self.net_arch,
-                self.buffer
-            ).to(self.device)
-
         weights = generate_weights(self.delta_weight)
         print(f"Warmup phase - sampled weights: {weights}")
 
@@ -791,32 +772,21 @@ class PGMORL(MOAgent):
         elif self.agent == 'MOSAC':
             self.agents = [
                 MOSAC(
-                  i,
-                    self.networks[i],
-                    weights[i],
-                    self.env,
+                    env=self.env,
+                    weights=weights[i],
                     log=self.log,
                     gamma=self.gamma,
                     device=self.device,
                     seed=self.seed,
-                    steps_per_iteration=self.steps_per_iteration,
-                    num_minibatches=self.num_minibatches,
-                    update_epochs=self.update_epochs,
-                    learning_rate=self.learning_rate,
-                    anneal_lr=self.anneal_lr,
-                    clip_coef=self.clip_coef,
-                    ent_coef=self.ent_coef,
-                    vf_coef=self.vf_coef,
-                    clip_vloss=self.clip_vloss,
-                    max_grad_norm=self.max_grad_norm,
-                    norm_adv=self.norm_adv,
-                    target_kl=self.target_kl,
-                    gae=self.gae,
-                    gae_lambda=self.gae_lambda,
-                    rng=self.np_random,
+                    total_timesteps=self.steps_per_iteration,
+                    policy_lr=self.learning_rate,
+                    q_lr=self.learning_rate,
+                    id = i,
+                    parent_rng = self.np_random,
                     observation_shape=self.observation_shape,
                     observation_space = self.observation_space,
-                    action_space = self.action_space
+                    action_space = self.action_space,
+                    reward_dim = self.reward_dim,
                 ) for i in range(self.pop_size)]
 
         StateEncoder = GRUStateEncoder
@@ -876,9 +846,7 @@ class PGMORL(MOAgent):
         for i, agent in enumerate(self.agents):
             _, _, _, discounted_reward = agent.policy_eval(eval_env, weights=agent.np_weights, log=self.log, state_encoder=self.state_encoders[i])
             # Storing current results
-            # input(discounted_reward)
             # divide second objective by 100
-        
             self.population.add(agent, discounted_reward)
             self.archive.add(agent, discounted_reward)
             if add_to_prediction:

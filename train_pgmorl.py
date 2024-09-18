@@ -98,7 +98,7 @@ from agents.pgmorl import PGMORL, make_env
 
 if __name__ == "__main__":
     args = get_parser([get_generic_parser()]).parse_args()
-    decoder = torch.load(args.data_dir+"GeMS/decoder/"+args.exp_name+"/e5938782b93eca33d86f340ac2f09eb5b79aae6379d99a20964d768861abed32.pt", map_location=torch.device('cpu')).to(args.device)
+    decoder = torch.load(os.path.join(args.data_dir,"GeMS", "decoder", args.exp_name, "e5938782b93eca33d86f340ac2f09eb5b79aae6379d99a20964d768861abed32.pt"), map_location=torch.device('cpu')).to(args.device)
     pl.seed_everything(args.seed)
     torch.backends.cudnn.deterministic = args.torch_deterministic
     device = torch.device("cuda" if torch.cuda.is_available() and args.device == "cuda" else "cpu")
