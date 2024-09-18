@@ -23,11 +23,14 @@ python -V
 # python -m pip install --upgrade pip
 # python -m pip install -r /home/yal700/git/Master_thesis_RLRSs/requirements.txt
 
+betas = (0.1, 0.5, 1.0, 2.0, 5.0, 10.0)
+beta = ${klds[SLURM_ARRAY_TASK_ID]}
+
 # Simple trick to create a unique directory for each run of the script
 echo $$
 mkdir o`echo $$`
 cd o`echo $$`
 
 # Run the actual experiment.
-python /var/scratch/yal700/Master_thesis_RLRSs/pretrain_gems.py --exp-name pretrain_gems --multi true 
+python /var/scratch/yal700/Master_thesis_RLRSs/pretrain_gems.py --exp-name pretrain_gems --multi true --lambda_KL $beta
 deactivate
