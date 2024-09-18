@@ -23,7 +23,7 @@ python -V
 # python -m pip install --upgrade pip
 # python -m pip install -r /home/yal700/git/Master_thesis_RLRSs/requirements.txt
 
-betas = (0.1, 0.5, 1.0, 2.0, 5.0, 10.0)
+betas = (0.1 0.2 0.5 1.0, 2.0)
 beta = ${klds[SLURM_ARRAY_TASK_ID]}
 
 # Simple trick to create a unique directory for each run of the script
