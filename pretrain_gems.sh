@@ -29,5 +29,5 @@ mkdir o`echo $$`
 cd o`echo $$`
 
 # Run the actual experiment.
-python /home/yal700/git/Master_thesis_RLRSs/pretrain_gems.py
+python /var/scratch/yal700/Master_thesis_RLRSs/pretrain_gems.py
 deactivate
