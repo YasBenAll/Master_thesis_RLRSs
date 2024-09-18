@@ -47,11 +47,16 @@ if __name__ == "__main__":
     print("### Pretraining GeMS ###")
     dataset_name = args.dataset
     if args.multi:
-        num_items = [100, 500, 1000]
-        slate_sizes = [3, 5, 10, 20]
-        kl_divergences = [0.1, 0.2, 0.5, 1.0, 2.0]
-        lambda_clicks = [0.0, 0.3,0.5, 1.0]
-        latent_dims = [16, 32]
+        # num_items = [100, 500, 1000]
+        num_items = [100]
+        slate_sizes = [3]
+        # slate_sizes = [3, 5, 10, 20]
+        # kl_divergences = [0.1, 0.2, 0.5, 1.0, 2.0]
+        kl_divergences = [0.5]
+        # lambda_clicks = [0.0, 0.3,0.5, 1.0]
+        lambda_clicks = [0.5]
+        # latent_dims = [16, 32]
+        latent_dims = [16]
         for latent_dim in latent_dims:
             for lambd in lambda_clicks:
                 for beta in kl_divergences:
@@ -66,6 +71,7 @@ if __name__ == "__main__":
                             print(f"Training GeMS with config: {config_hash}")
                             decoder = gems.train(args, config_hash)
     else:
+        args.dataset = "SlateTopK-BoredInf-v0-num_item100-slate_size3_oracle_epsilon0.5_seed2023_n_users10seed2023.pt"
         decoder = gems.train(args, config_hash)
     
     # set precision to 2 decimal places
