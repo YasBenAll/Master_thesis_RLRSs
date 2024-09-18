@@ -3,7 +3,7 @@
 #SBATCH -N 1
 #SBATCH -C A4000
 #SBATCH --gres=gpu:1
-
+#SBATCH --array=0-4  # For indexing betas array
 
 echo "Starting job $SLURM_JOB_ID"
 
@@ -14,23 +14,25 @@ module load cuda11.7/toolkit/11.7
 
 nvidia-smi
 
-# create a virtual environment in /var/scratch/$USER/
+# Create a virtual environment in /var/scratch/$USER/
 python3.10 -m venv /var/scratch/$USER/venv
 source /var/scratch/$USER/venv/bin/activate
 python -V
 
-# Install the required packages
+# Uncomment to install required packages
 # python -m pip install --upgrade pip
 # python -m pip install -r /home/yal700/git/Master_thesis_RLRSs/requirements.txt
 
-betas = (0.1 0.2 0.5 1.0 2.0)
-beta = ${klds[SLURM_ARRAY_TASK_ID]}
+# Define betas array and select based on SLURM_ARRAY_TASK_ID
+betas=(0.1 0.2 0.5 1.0 2.0)
+beta=${betas[SLURM_ARRAY_TASK_ID]}
 
-# Simple trick to create a unique directory for each run of the script
-echo $$
+# Create a unique directory for each run
+echo $$  # Print process ID
 mkdir o`echo $$`
 cd o`echo $$`
 
-# Run the actual experiment.
+# Run the actual experiment
 python /var/scratch/yal700/Master_thesis_RLRSs/pretrain_gems.py --exp-name pretrain_gems2 --multi true --lambda_KL $beta
+
 deactivate
