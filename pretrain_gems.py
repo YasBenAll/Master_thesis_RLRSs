@@ -61,7 +61,7 @@ if __name__ == "__main__":
             for lambd in lambda_clicks:
                 for num_item in num_items:
                     for slate_size in slate_sizes:
-                        args.dataset=f"{args.dataset_multi}-num_item{num_item}-slate_size{slate_size}_oracle_epsilon0.5_seed2023_n_users10seed2023.pt"
+                        args.dataset=f"{args.dataset_multi}-num_item{num_item}-slate_size{slate_size}_oracle_epsilon0.5_seed2023_n_users1000seed2023.pt"
                         args.slate_size = slate_size
                         args.lambda_KL = args.lambda_KL
                         args.lambda_click = lambd
