@@ -48,7 +48,7 @@ if __name__ == "__main__":
     dataset_name = args.dataset
     if args.multi:
         # num_items = [100, 500, 1000]
-        num_items = [1000]
+        num_items = [500]
         slate_sizes = [10]
         # slate_sizes = [3, 5, 10, 20]
         # kl_divergences = [0.1, 0.2, 0.5, 1.0, 2.0]
