@@ -1,5 +1,5 @@
 #!/bin/sh
-#SBATCH --time=00:15:00
+#SBATCH --time=03:00:00
 #SBATCH -N 1
 #SBATCH -C A4000
 #SBATCH --gres=gpu:1
