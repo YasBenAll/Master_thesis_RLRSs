@@ -33,6 +33,6 @@ mkdir o`echo $$`
 cd o`echo $$`
 
 # Run the actual experiment
-python /var/scratch/yal700/Master_thesis_RLRSs/pretrain_gems.py --exp-name pretrain_gems2 --multi true --lambda-KL $beta
+python /var/scratch/yal700/Master_thesis_RLRSs/pretrain_gems.py --exp-name pretrain_gems_for_real --multi true --lambda-KL $beta
 
 deactivate
