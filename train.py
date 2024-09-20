@@ -8,7 +8,7 @@ import pytorch_lightning as pl
 import torch
 import random
 import numpy as np
-from agents import sac, slateQ, topk_reinforce
+from agents import sac, slateQ, topk_reinforce, hac
 from gems import gems
 from utils.parser import get_generic_parser
 from utils.file import hash_config
@@ -19,7 +19,7 @@ def get_parser(parents = [], args = None):
         "--agent",
         type=str,
         required = True,
-        choices=["sac", "ppo", "random", "slateQ", "reinforce"],
+        choices=["sac", "ppo", "random", "slateQ", "reinforce", "hac"],
         help="Type of agent",
     )
     parser.add_argument(
@@ -50,6 +50,8 @@ def get_parser(parents = [], args = None):
         parser = slateQ.get_parser(parents = [parser])
     if args.agent == "reinforce":
         parser = topk_reinforce.get_parser(parents = [parser])
+    if args.agent == "hac":
+        parser = hac.get_parser(parents = [parser])
     return parser
 
 def main(parents = []):
@@ -64,7 +66,6 @@ def main(parents = []):
     if device.type != "cpu":
         torch.set_default_device(device)
         torch.set_default_dtype(torch.float32)
-
     if args.track == "wandb":
         import wandb
         run_name = f"{args.exp_name}_{args.run_name}_seed{args.seed}_{int(time.time())}"
@@ -85,6 +86,8 @@ def main(parents = []):
         slateQ.train(args)
     if args.agent == "reinforce":
         topk_reinforce.train(args)
+    if args.agent == "hac":
+        hac.train(args)
 
 if __name__ == "__main__":
     parser = get_generic_parser()
