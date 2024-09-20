@@ -8,7 +8,7 @@ import pytorch_lightning as pl
 import torch
 import random
 import numpy as np
-from agents import sac
+from agents import sac, slateQ, topk_reinforce
 from gems import gems
 from utils.parser import get_generic_parser
 from utils.file import hash_config
@@ -19,7 +19,7 @@ def get_parser(parents = [], args = None):
         "--agent",
         type=str,
         required = True,
-        choices=["sac", "ppo", "random"],
+        choices=["sac", "ppo", "random", "slateQ", "reinforce"],
         help="Type of agent",
     )
     parser.add_argument(
@@ -46,12 +46,17 @@ def get_parser(parents = [], args = None):
         parser = gems.get_parser(parents = [parser])
     if args.agent == "sac":
         parser = sac.get_parser(parents = [parser])
+    if args.agent == "slateQ":
+        parser = slateQ.get_parser(parents = [parser])
+    if args.agent == "reinforce":
+        parser = topk_reinforce.get_parser(parents = [parser])
     return parser
 
 def main(parents = []):
     parser = get_parser(parents = parents)
     args = parser.parse_args()
-    decoder = torch.load(os.path.join(args.data_dir, "GeMS", "decoder", args.exp_name,args.decoder_name+".pt"), map_location=torch.device('cpu')).to(args.device)
+    if args.agent == "sac":
+        decoder = torch.load(os.path.join(args.data_dir, "GeMS", "decoder", args.exp_name,args.decoder_name+".pt"), map_location=torch.device('cpu')).to(args.device)
 
     pl.seed_everything(args.seed)
     torch.backends.cudnn.deterministic = args.torch_deterministic
@@ -76,6 +81,10 @@ def main(parents = []):
 
     if args.agent == "sac":
         sac.train(args, decoder = decoder)
+    if args.agent == "slateQ":
+        slateQ.train(args)
+    if args.agent == "reinforce":
+        topk_reinforce.train(args)
 
 if __name__ == "__main__":
     parser = get_generic_parser()
