@@ -66,8 +66,8 @@ def get_parser(parents=[], args=None):
     args, _ = parser.parse_known_args(args)
     return parser
 
-def create_environment(args, env_id):
-    env = mo_gym.make(env_id)
+def create_environment(args, env_id, slate_size, num_item):
+    env = mo_gym.make(env_id, morl=False, slate_size=slate_size, num_item = num_item)
     if args.ideal_state:
         env = IdealState(env)
     return env
@@ -107,15 +107,16 @@ def generate_dataset(args):
     save_dataset_and_embeddings(args, dataset, env, path_name)
 
 def generate_datasets_for_multiple_configs(args):
-    num_items = [100, 200, 300, 500, 1000, 10000]
-    slate_sizes = [3, 4, 5, 6, 7, 8, 9, 10, 20]
+    num_items = [100, 500, 1000]
+    slate_sizes = [3, 5]
     
     for num_item in num_items:
         for slate_size in slate_sizes:
             print(f"num_item: {num_item}, slate_size: {slate_size}")
             
-            env_id = f"SlateTopK-BoredInf-v0-num_item{num_item}-slate_size{slate_size}"
-            env = create_environment(args, env_id)
+            env_id = f"SlateTopK-BoredInf-v0-num_item100-slate_size3"
+            env_name = f"SlateTopK-BoredInf-v0-num_item{num_item}-slate_size{slate_size}"
+            env = create_environment(args, env_id, slate_size=slate_size, num_item = num_item)
             logging_policy = select_logging_policy(args, env)
 
             dataset = env.generate_dataset(
@@ -126,7 +127,7 @@ def generate_datasets_for_multiple_configs(args):
                 loading_bar=args.loading_bar
             )
 
-            env_id_str = re.sub(r'[\W_]+', '', env_id)
+            env_id_str = re.sub(r'[\W_]+', '', env_name)
             path_name = f"{env_id_str}_{args.lp}_epsilon{args.eps}_seed{args.seed}_n_users{args.n_users}.pt"
             
             save_dataset_and_embeddings(args, dataset, env, path_name)
