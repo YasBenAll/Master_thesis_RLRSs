@@ -81,8 +81,8 @@ def select_logging_policy(args, env):
         raise ValueError(f"Unknown logging policy: {args.lp}")
 
 def save_dataset_and_embeddings(args, dataset, env, path_name):
-    path_dataset = os.path.join(args.data_dir,'datasets', path_name)
-    path_embeddings = os.path.join(args.data_dir, 'datasets','embeddings', path_name)
+    path_dataset = os.path.join(args.data_dir,"production",'datasets', path_name)
+    path_embeddings = os.path.join(args.data_dir, "production", 'datasets','embeddings', path_name)
     
     torch.save(dataset, os.path.join(path_dataset))
     torch.save(env.unwrapped.item_embedd, os.path.join(path_embeddings))
@@ -108,7 +108,7 @@ def generate_dataset(args):
 
 def generate_datasets_for_multiple_configs(args):
     num_items = [100, 500, 1000]
-    slate_sizes = [3, 5]
+    slate_sizes = [10, 20]
     
     for num_item in num_items:
         for slate_size in slate_sizes:
@@ -138,7 +138,7 @@ def main():
     args = parser.parse_args()
 
     Path(args.data_dir).mkdir(parents=True, exist_ok=True)
-    Path(os.path.join(args.data_dir, "datasets","embeddings")).mkdir(parents=True, exist_ok=True)
+    Path(os.path.join(args.data_dir, "production","datasets","embeddings")).mkdir(parents=True, exist_ok=True)
 
     if args.dataset_multi:
         generate_datasets_for_multiple_configs(args)
