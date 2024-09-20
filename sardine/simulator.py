@@ -448,7 +448,6 @@ class Sardine(gym.Env):
             action = policy.get_action(observation)
             next_obs, reward, terminated, truncated, info = self.step(action)
             done = terminated or truncated
-            print(reward)
             if dataset_type == "sb3_rollout":
                 dataset.add(observation, info["slate"], reward, ep_starts, torch.zeros(1), torch.ones(1))
                 ep_starts = np.array(done)
