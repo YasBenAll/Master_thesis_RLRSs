@@ -1034,7 +1034,6 @@ class POMDPDictReplayBuffer(DictReplayBuffer):
         self.pos += 1
         self.traj_pos += 1
         if self.pos == self.buffer_size:
-            input(self.pos)
             self.full = True
             self.pos = 0
             for e in range(self.n_envs):

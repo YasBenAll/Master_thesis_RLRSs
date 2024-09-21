@@ -58,8 +58,10 @@ def main(parents = []):
     parser = get_parser(parents = parents)
     args = parser.parse_args()
     if args.agent == "sac":
-        decoder = torch.load(os.path.join(args.data_dir, "GeMS", "decoder", args.exp_name,args.decoder_name+".pt"), map_location=torch.device('cpu')).to(args.device)
-
+        if args.ranker == "gems":
+            decoder = torch.load(os.path.join(args.data_dir, "GeMS", "decoder", args.exp_name,args.decoder_name+".pt"), map_location=torch.device('cpu')).to(args.device)
+        else: 
+            decoder = None
     pl.seed_everything(args.seed)
     torch.backends.cudnn.deterministic = args.torch_deterministic
     device = torch.device("cuda" if torch.cuda.is_available() and args.device == "cuda" else "cpu")
