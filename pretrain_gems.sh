@@ -36,6 +36,6 @@ mkdir o`echo $$`
 cd o`echo $$`
 
 # Run the actual experiment
-python /var/scratch/yal700/Master_thesis_RLRSs/pretrain_gems.py --exp-name pretrain_gems_for_real --multi true --lambda-KL $beta
+python /var/scratch/yal700/Master_thesis_RLRSs/pretrain_gems.py --latent-dim 16 --multi True --slate-size 3 --num-items 100000 --latent-dim 16 --seed 2023 --n-users 10 --concurrent False --env-id SlateTopK-BoredInf-v0
 
 deactivate
