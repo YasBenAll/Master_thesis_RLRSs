@@ -94,10 +94,11 @@ if __name__ == "__main__":
         latent_dims = [16]
 
         # number of combinations of hyperparameters
-        print(f"Number of combinations: {len(num_items) * len(lambda_clicks) * len(latent_dims)}")
-        total = len(num_items) * len(lambda_clicks) * len(latent_dims)
+
         env_id = re.sub(r'[\W_]+', '', args.env_id)
         if args.multi:
+            print(f"Number of combinations: {len(num_items) * len(lambda_clicks) * len(latent_dims)}")
+            total = len(num_items) * len(lambda_clicks) * len(latent_dims)
             # Use ThreadPoolExecutor or ProcessPoolExecutor for concurrent executionp
             if args.concurrent: 
                 with concurrent.futures.ProcessPoolExecutor(max_workers=3) as executor:

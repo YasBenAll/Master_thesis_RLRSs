@@ -29,6 +29,10 @@ python -V
 betas=(0.1 0.2 0.5 1.0 2.0)
 beta=${betas[SLURM_ARRAY_TASK_ID]}
 
+echo "Beta: $beta"
+echo "Slate size: $SLATESIZE"
+echo "Latent dim: $LD"
+
 # mkdir pretrain_gems
 
 
