@@ -27,7 +27,7 @@ python -V
 
 # Define betas array and select based on SLURM_ARRAY_TASK_ID
 betas=(0.1 0.2 0.5 1.0 2.0)
-beta=${betas[SLURM_ARRAY_TASK_ID]}
+BETA=${betas[SLURM_ARRAY_TASK_ID]}
 
 echo "Beta: $BETA"
 echo "Slate size: $SLATE_SIZE"
