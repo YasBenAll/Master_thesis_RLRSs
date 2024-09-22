@@ -1,5 +1,5 @@
 #!/bin/sh
-#SBATCH --time=10:00:00
+#SBATCH --time=24:00:00
 #SBATCH -N 1
 #SBATCH -C gpunode
 #SBATCH --gres=gpu:1
