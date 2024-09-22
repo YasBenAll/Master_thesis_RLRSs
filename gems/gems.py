@@ -156,7 +156,6 @@ class ReplayBufferDataModule(pl.LightningDataModule):
 
 def train(args, config_hash, dataset = None):
     # Model
-    
     gems = GeMS(**vars(args))
     print(gems)
     # Loggers

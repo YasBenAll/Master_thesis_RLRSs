@@ -67,6 +67,7 @@ def train_gems(args, num_item, slate_size, lambd, latent_dim, env_id):
 
 if __name__ == "__main__":
     try:
+        print("### Pretraining GeMS ###")
         parser = get_parser(parents = [get_generic_parser(), gems.get_parser()])
         args = parser.parse_args()
         start_time = time.time()
@@ -79,8 +80,6 @@ if __name__ == "__main__":
         device = torch.device("cuda" if torch.cuda.is_available() and args.device == "cuda" else "cpu")
         if device.type != "cpu":
             torch.set_default_tensor_type("torch.cuda.FloatTensor")
-        
-        print("### Pretraining GeMS ###")
         dataset_name = args.dataset
         # num_items = [100, 500, 1000]
         num_items = [100,500, 1000]
