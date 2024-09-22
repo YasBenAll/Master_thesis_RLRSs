@@ -38,6 +38,6 @@ mkdir o`echo $$`
 cd o`echo $$`
 
 # Run the actual experiment
-python /var/scratch/yal700/Master_thesis_RLRSs/pretrain_gems.py --slate-size $SLATESIZE --latent-dim $LD --n-users 100000 --device cuda --multi False --num-item 100 --seed 2023 --concurrent True --env-id SlateTopK-BoredInf-v0
+python /var/scratch/yal700/Master_thesis_RLRSs/pretrain_gems.py --slate-size $SLATESIZE --exp-name final --latent-dim $LD --num-item 100 --n-users 100000 --device cuda --multi False  --seed 2023 --concurrent True --env-id SlateTopK-BoredInf-v0
 
 deactivate
