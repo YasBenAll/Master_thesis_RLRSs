@@ -48,7 +48,7 @@ def get_generic_parser(parents = []):
     parser.add_argument(
         "--device",
         type=str,
-        default="cpu",
+        default="cuda",
         help="Device for training.",
     )
     parser.add_argument(

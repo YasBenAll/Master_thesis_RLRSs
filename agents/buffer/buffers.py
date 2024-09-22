@@ -515,7 +515,7 @@ class RolloutBuffer(BaseBuffer):
         self.observations[self.pos] = np.array(obs).copy()
         self.actions[self.pos] = np.array(action).copy()
         self.rewards[self.pos] = np.array(reward).copy()
-        input(f"episode starts: {self.episode_starts}, shape: {self.episode_starts.shape} \n episode start: {episode_start} episode start shape: {episode_start.shape} \n pos: {self.pos} \n")
+        # input(f"episode starts: {self.episode_starts}, shape: {self.episode_starts.shape} \n episode start: {episode_start} episode start shape: {episode_start.shape} \n pos: {self.pos} \n")
         self.episode_starts[self.pos] = np.array(episode_start).copy()
         self.values[self.pos] = value.clone().cpu().numpy().flatten()
         self.log_probs[self.pos] = log_prob.clone().cpu().numpy()

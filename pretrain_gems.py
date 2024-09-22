@@ -48,7 +48,7 @@ def get_parser(parents = [], args = None):
         "--n-users",
         type=int,
         default=100000,
-        help="Number of users to generate data for",
+        help="Number of users in the dataset",
     )
 
     return parser
@@ -60,7 +60,8 @@ def train_gems(args, num_item, slate_size, lambd, latent_dim, env_id):
     args.lambda_click = lambd
     args.latent_dim = latent_dim
     config_hash = hash_config(args, index=True)
-    print(f"Training GeMS with config: {config_hash}")
+    print(f"Training GeMS with configurations: args.dataset={args.dataset}, args.slate_size={args.slate_size}, args.lambda_KL={args.lambda_KL}, args.lambda_click={args.lambda_click}, args.latent_dim={args.latent_dim}")
+
     decoder = gems.train(args, config_hash)
     return config_hash
 
@@ -82,7 +83,7 @@ if __name__ == "__main__":
     dataset_name = args.dataset
     # num_items = [100, 500, 1000]
     num_items = [100,500, 1000]
-    slate_sizes = [5]
+    # slate_sizes = [5]
     # slate_sizes = [3, 5, 10, 20]
     # kl_divergences = [0.1, 0.2, 0.5, 1.0, 2.0]
     kl_divergences = [0.5]
@@ -103,9 +104,9 @@ if __name__ == "__main__":
                 for latent_dim in latent_dims:
                     for lambd in lambda_clicks:
                         for num_item in num_items:
-                            for slate_size in slate_sizes:
-                                # Submit each configuration to the executor for parallel processing
-                                futures.append(executor.submit(train_gems, args, num_item, slate_size, lambd, latent_dim, env_id))
+                            # for slate_size in slate_sizes:
+                            # Submit each configuration to the executor for parallel processing
+                            futures.append(executor.submit(train_gems, args, num_item, args.slate_size, lambd, latent_dim, env_id))
 
                 # Collect results (if necessary)
                 for future in concurrent.futures.as_completed(futures):
@@ -122,7 +123,7 @@ if __name__ == "__main__":
                             args.lambda_click = lambd
                             args.latent_dim = latent_dim
                             config_hash = hash_config(args, index=True)
-                            print(f"Training GeMS with config: {config_hash}")
+                            print(f"Training GeMS with configurations: args.dataset={args.dataset}, args.slate_size={args.slate_size}, args.lambda_KL={args.lambda_KL}, args.lambda_click={args.lambda_click}, args.latent_dim={args.latent_dim}")
                             decoder = gems.train(args, config_hash)
     else:
         args.dataset = f"{env_id}numitem{args.num_items}slatesize{args.slate_size}_oracle_epsilon0.5_seed2023_n_users{args.n_users}.pt"
@@ -130,7 +131,7 @@ if __name__ == "__main__":
         
     import os
     if args.multi:
-        log_folder = os.path.join("pretrain_gems", f"{env_id}numitem{num_items}slatesize{slate_sizes}_oracle_epsilon0.5_seed2023_n_users{args.n_users}.pt"[:-3]+".log")
+        log_folder = os.path.join("pretrain_gems", f"{env_id}numitem{num_items}slatesize{args.slate_size}_oracle_epsilon0.5_seed2023_n_users{args.n_users}.pt"[:-3]+".log")
     else:
         log_folder = os.path.join("pretrain_gems", f"{env_id}numitem{args.num_items}slatesize{args.slate_size}_oracle_epsilon0.5_seed2023_n_users{args.n_users}.pt"[:-3]+".log")
     with open(log_folder, "w") as f:

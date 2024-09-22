@@ -584,12 +584,12 @@ def train(args, decoder = None):
                 else:
                     cum_boredom += (1.0 if np.sum(val_infos["bored"][0] == True) > 0 else 0.0)
 
-                # save sac model for later analysis 
-                if args.save_sac_model:
-                    if ep == args.n_val_episodes:
-                        torch.save(actor, f"actor_{global_step}.pt")
-                        torch.save(qf1, f"critic_{global_step}.pt")
-                        torch.save(qf1_target, f"critic_target_{global_step}.pt")
+                # # save sac model for later analysis 
+                # if args.save_sac_model:
+                #     if ep == args.n_val_episodes:
+                #         torch.save(actor, f"actor_{global_step}.pt")
+                #         torch.save(qf1, f"critic_{global_step}.pt")
+                #         torch.save(qf1_target, f"critic_target_{global_step}.pt")
 
 
             print(
@@ -737,7 +737,7 @@ def train(args, decoder = None):
                             torch.min(qf1_next_target, qf2_next_target)
                             - alpha * next_state_log_pi
                         )
-                        min_qf_next_target = min_qf_next_target.sum(2, keepdim=False)
+                        # min_qf_next_target = min_qf_next_target.sum(2, keepdim=False)
                         next_q_value = data.rewards.flatten() + (
                             1 - data.dones.flatten()
                         ) * args.gamma * min_qf_next_target.view(-1)

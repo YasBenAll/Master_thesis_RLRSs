@@ -215,8 +215,9 @@ def train(args, config_hash, dataset = None):
     gems = GeMS.load_from_checkpoint(os.path.join(ckpt_dir, config_hash + ".ckpt"), **vars(args))
     decoder_dir = os.path.join(args.data_dir, "GeMS", "decoder", args.exp_name)
     Path(decoder_dir).mkdir(parents=True, exist_ok=True)
-    print("Saving decoder to ", os.path.join(decoder_dir, config_hash +".pt"))
-    torch.save(gems.decoder, os.path.join(decoder_dir, args.dataset+ f"kl_divergences{args.lambda_KL}_lambda_clicks{args.lambda_click}_latentdim_{args.latent_dim}" +".pt"))
+    path_dir = os.path.join(decoder_dir, args.dataset+ f"kl_divergences{args.lambda_KL}_lambda_clicks{args.lambda_click}_latentdim_{args.latent_dim}" +".pt")
+    print("Saving decoder to ", path_dir)
+    torch.save(gems.decoder, path_dir)
     return gems.decoder.to(args.device)
 
 if __name__ == "__main__":
