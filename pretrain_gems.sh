@@ -1,7 +1,7 @@
 #!/bin/sh
 #SBATCH --time=03:00:00
 #SBATCH -N 1
-#SBATCH -C A4000
+#SBATCH -C gpunode
 #SBATCH --gres=gpu:1
 #SBATCH --array=0-4  # For indexing betas array
 
