@@ -3,6 +3,7 @@
 #SBATCH -N 1
 #SBATCH -C gpunode
 #SBATCH --gres=gpu:1
+#SBATCH --array=0-4  # For indexing betas array
 
 echo "TEST TEST $SLATESIZE $LD $SLURM_ARRAY_TASK_ID"
 
@@ -28,7 +29,7 @@ python -V
 betas=(0.1 0.2 0.5 1.0 2.0)
 beta=${betas[SLURM_ARRAY_TASK_ID]}
 
-mkdir pretrain_gems
+# mkdir pretrain_gems
 
 
 # # Create a unique directory for each run
