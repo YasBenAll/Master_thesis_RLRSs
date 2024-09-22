@@ -32,6 +32,7 @@ beta=${betas[SLURM_ARRAY_TASK_ID]}
 echo "Beta: $beta"
 echo "Slate size: $SLATESIZE"
 echo "Latent dim: $LD"
+echo "Num items: $NUMITEMS"
 
 # mkdir pretrain_gems
 
@@ -42,6 +43,6 @@ echo "Latent dim: $LD"
 # cd o`echo $$`
 
 # Run the actual experiment
-python /var/scratch/yal700/Master_thesis_RLRSs/pretrain_gems.py --slate-size $SLATESIZE --exp-name final --latent-dim $LD --lambda-KL $SLURM_ARRAY_TASK_ID --num-item 100 --n-users 100000 --device cuda --multi False  --seed 2023 --concurrent True --env-id SlateTopK-BoredInf-v0
+python /var/scratch/yal700/Master_thesis_RLRSs/pretrain_gems.py --slate-size $SLATESIZE --exp-name final --latent-dim $LD --lambda-KL $beta --num-items $NUMITEMS --n-users 100000 --device cuda --multi False  --seed 2023 --concurrent False --env-id SlateTopK-BoredInf-v0
 
 deactivate
