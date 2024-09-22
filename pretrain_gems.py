@@ -93,8 +93,8 @@ if __name__ == "__main__":
     latent_dims = [16]
 
     # number of combinations of hyperparameters
-    print(f"Number of combinations: {len(num_items) * len(args.slate_size) * len(lambda_clicks) * len(latent_dims)}")
-    total = len(num_items) * len(args.slate_size) * len(lambda_clicks) * len(latent_dims)
+    print(f"Number of combinations: {len(num_items) * len(lambda_clicks) * len(latent_dims)}")
+    total = len(num_items) * len(lambda_clicks) * len(latent_dims)
     env_id = re.sub(r'[\W_]+', '', args.env_id)
     if args.multi:
         # Use ThreadPoolExecutor or ProcessPoolExecutor for concurrent executionp
@@ -117,8 +117,8 @@ if __name__ == "__main__":
                 for lambd in lambda_clicks:
                     for num_item in num_items:
                         # for slate_size in slate_sizes:
-                        args.dataset=f"{env_id}numitem{num_item}slatesize{slate_size}_oracle_epsilon0.5_seed2023_n_users{args.n_users}.pt"
-                        args.slate_size = slate_size
+                        args.dataset=f"{env_id}numitem{num_item}slatesize{args.slate_size}_oracle_epsilon0.5_seed2023_n_users{args.n_users}.pt"
+                        # args.slate_size = slate_size
                         args.lambda_KL = args.lambda_KL
                         args.lambda_click = lambd
                         args.latent_dim = latent_dim
