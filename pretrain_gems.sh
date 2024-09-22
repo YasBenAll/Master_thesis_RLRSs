@@ -5,6 +5,8 @@
 #SBATCH --gres=gpu:1
 #SBATCH --array=0-4  # For indexing betas array
 
+echo "TEST TEST $SLATESIZE $LD $SLURM_ARRAY_TASK_ID"
+
 echo "Starting job $SLURM_JOB_ID"
 
 # Load GPU drivers
