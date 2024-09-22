@@ -42,3 +42,4 @@ sardine/buffer/__pycache__/type_aliases.cpython-310.pyc
 utils/.env
 data/wandb/
 data/production/
+pretrain_gems/
