@@ -55,7 +55,7 @@ def get_parser(parents = [], args = None):
 
 def train_gems(args, num_item, slate_size, lambd, latent_dim, env_id):
     """Function to train GeMS with a specific configuration."""
-    args.dataset = f"{env_id}numitem{num_item}slatesize{slate_size}_oracle_epsilon0.5_seed2023_n_users100.pt"
+    args.dataset = f"{env_id}numitem{num_item}slatesize{slate_size}_oracle_epsilon0.5_seed2023_n_users{args.n_users}.pt"
     args.slate_size = slate_size
     args.lambda_click = lambd
     args.latent_dim = latent_dim
