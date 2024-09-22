@@ -81,8 +81,8 @@ def select_logging_policy(args, env):
         raise ValueError(f"Unknown logging policy: {args.lp}")
 
 def save_dataset_and_embeddings(args, dataset, env, path_name):
-    path_dataset = os.path.join(args.data_dir,"production",'datasets', path_name)
-    path_embeddings = os.path.join(args.data_dir, "production", 'datasets','embeddings', path_name)
+    path_dataset = os.path.join(args.data_dir,'datasets', path_name)
+    path_embeddings = os.path.join(args.data_dir,'datasets','embeddings', path_name)
     
     torch.save(dataset, os.path.join(path_dataset))
     torch.save(env.unwrapped.item_embedd, os.path.join(path_embeddings))
