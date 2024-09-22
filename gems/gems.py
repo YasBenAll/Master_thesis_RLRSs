@@ -156,6 +156,10 @@ class ReplayBufferDataModule(pl.LightningDataModule):
 
 def train(args, config_hash, dataset = None):
     # Model
+    with open(os.path.join(args.data_dir, "GeMS", "results", args.env_id + args.slate_size + args.lambda_KL + args.lambda_clicks + ".txt") as f:
+        f.write(f"Config hash: {config_hash}\n")
+        f.write(f"Config: {args}\n")
+
 
     gems = GeMS(**vars(args))
     print(gems)
