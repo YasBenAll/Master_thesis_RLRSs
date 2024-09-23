@@ -5,8 +5,7 @@
 #SBATCH --gres=gpu:1
 #SBATCH --array=0-4  # For indexing betas array
 
-echo "TEST TEST $SLATESIZE $LD $SLURM_ARRAY_TASK_ID"
-
+echo "$SLATESIZE $LD $SLURM_ARRAY_TASK_ID $LAMBDA $NUM_ITEMS $BETA"
 echo "Starting job $SLURM_JOB_ID"
 
 # Load GPU drivers
@@ -29,11 +28,12 @@ python -V
 betas=(0.1 0.2 0.5 1.0 2.0)
 BETA=${betas[SLURM_ARRAY_TASK_ID]}
 
-echo "Beta: $BETA"
+echo "Beta (KL): $BETA"
+echo "Lambda (click): $LAMBDA"
 echo "Slate size: $SLATE_SIZE"
 echo "Latent dim: $LD"
 echo "Num items: $NUM_ITEMS"
-
+echo "Number of users: $N_USERS"
 # mkdir pretrain_gems
 
 
@@ -43,6 +43,6 @@ echo "Num items: $NUM_ITEMS"
 # cd o`echo $$`
 
 # Run the actual experiment
-python /var/scratch/yal700/Master_thesis_RLRSs/pretrain_gems.py --slate-size $SLATE_SIZE --exp-name final --latent-dim $LD --lambda-KL $BETA --num-items $NUM_ITEMS --n-users 100000 --device cuda --multi False  --seed 2023 --concurrent False --env-id SlateTopK-BoredInf-v0
+python /var/scratch/yal700/Master_thesis_RLRSs/pretrain_gems.py --lambda-click $LAMBDA --slate-size $SLATE_SIZE --exp-name final --latent-dim $LD --lambda-KL $BETA --num-items $NUM_ITEMS --n-users $N_USERS --device cuda --multi False  --seed 2023 --concurrent False --env-id SlateTopK-BoredInf-v0
 
 deactivate

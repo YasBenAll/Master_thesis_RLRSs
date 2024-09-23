@@ -92,12 +92,11 @@ if __name__ == "__main__":
         # latent_dims = [16, 32]
         latent_dims = [16]
 
-        # number of combinations of hyperparameters
-
+        total = len(num_items) * len(lambda_clicks) * len(latent_dims)
         env_id = re.sub(r'[\W_]+', '', args.env_id)
         if args.multi:
+            # number of combinations of hyperparameters
             print(f"Number of combinations: {len(num_items) * len(lambda_clicks) * len(latent_dims)}")
-            total = len(num_items) * len(lambda_clicks) * len(latent_dims)
             # Use ThreadPoolExecutor or ProcessPoolExecutor for concurrent executionp
             if args.concurrent: 
                 with concurrent.futures.ProcessPoolExecutor(max_workers=3) as executor:
@@ -164,7 +163,9 @@ if __name__ == "__main__":
         # hours
         print("--- %s hours ---" % round((time.time() - start_time)/3600, 2))
 
-        print("Average time per configuration: ", round((time.time() - start_time)/total, 2), "seconds")
+        if args.multi:
+            print("Average time per configuration: ", round((time.time() - start_time)/total, 2), "seconds")
+
         print("### Finished pretraining GeMS ###")
     except:
         print("### Error in pretraining GeMS ###")
