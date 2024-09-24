@@ -43,3 +43,4 @@ utils/.env
 data/wandb/
 data/production/
 pretrain_gems/
+/data/mf_embeddings
