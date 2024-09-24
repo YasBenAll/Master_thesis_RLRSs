@@ -44,3 +44,4 @@ data/wandb/
 data/production/
 pretrain_gems/
 /data/mf_embeddings
+generate_commands.py
