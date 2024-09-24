@@ -39,7 +39,7 @@ class Sardine(gym.Env):
         super().__init__()
 
         self.morl = morl
-
+        self.recommended_items = set() 
         ### General parameters of the environment
         self.num_items = num_items
         self.num_topics = num_topics
@@ -83,8 +83,6 @@ class Sardine(gym.Env):
         self._init_item_embeddings(env_embedds)
         self._set_topic_for_items()
 
-
-
     def engagement_reward(self, clicks):
         return sum(clicks)
 
@@ -97,7 +95,6 @@ class Sardine(gym.Env):
         same = [i == j for i, j in zip(item1, item2)]
         # calculate the Jaccard distance
         return 1 - sum(same) / len(same) 
-
 
     def novelty_reward(self, slate):
         # return np.mean([-np.log2(item_popularity[i]) for i in slate])
@@ -201,7 +198,8 @@ class Sardine(gym.Env):
             The initial ranker returns the most qualitative document in each topic (or the 10 first topics, or multiple top_docs per topic)
         '''
         super().reset(seed=seed)
-
+        
+        self.recommended_items.clear()  # Reset for a new episode
         self.boredom_counter = 0
         self.t = 0  # Index of the trajectory-wide timestep
         self.clicked_items = deque([], self.recent_items_maxlen)
@@ -375,6 +373,14 @@ class Sardine(gym.Env):
             info["terminated"] = False
 
         obs = {'slate' : slate, 'clicks' : clicks, 'hist' : self.norm_recent_topics_hist}
+
+        # Add items in the slate to the recommended items set
+        self.recommended_items.update(slate)
+
+        # Return the catalog coverage at the end
+        catalog_coverage = len(self.recommended_items) / self.num_items
+        info["catalog_coverage"] = catalog_coverage
+
         if self.morl:
             return obs, np.array([self.engagement_reward(clicks), self.diversity_reward(self.item_embedd[slate])]), terminated, False, info
         else:
@@ -431,7 +437,7 @@ class Sardine(gym.Env):
                 handle_timeout_termination = False)
         else:
             if self.morl:
-                episode_dict = {"observation": {"slate": [], "clicks": [], "hist": []},
+                episode_dict = {"observation": {"slate": [], "clicks": [], "hist": [], "catalog_coverage": [], "diversity": []},
                                 "action": [],
                                 "reward": {"engagement": [], "diversity": [], "novelty": []}}
             else:
