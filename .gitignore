@@ -49,3 +49,4 @@ generate_commands.py
 baselines_results.csv
 baselines_results.xlsx
 embeddings.ipynb
+/plots
