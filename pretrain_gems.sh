@@ -43,6 +43,6 @@ echo "Number of users: $N_USERS"
 # cd o`echo $$`
 
 # Run the actual experiment
-python /var/scratch/yal700/Master_thesis_RLRSs/pretrain_gems.py --lambda-click $LAMBDA --slate-size $SLATE_SIZE --exp-name final --latent-dim $LD --lambda-KL $BETA --num-items $NUM_ITEMS --n-users $N_USERS --device cuda --multi False  --seed 2023 --concurrent False --env-id SlateTopK-BoredInf-v0
+python /var/scratch/yal700/Master_thesis_RLRSs/pretrain_gems.py --lambda-click $LAMBDA --slate-size $SLATE_SIZE --exp-name final --latent-dim $LD --lambda-KL $BETA --num-items $NUM_ITEMS --n-users $N_USERS --device cuda --multi False  --seed 2023 --concurrent False --env-id SlateTopK-Bored-v0
 
 deactivate
