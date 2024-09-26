@@ -29,7 +29,7 @@ def get_parser(parents = [], args = None):
     parser.add_argument(
         "--env-id",
         type=str,
-        default="SlateTopK-BoredInf-v0",
+        default="SlateTopK-Bored-v0",
         help="environment id",
     )
     parser.add_argument(
@@ -49,6 +49,11 @@ def get_parser(parents = [], args = None):
         type=int,
         default=100000,
         help="Number of users in the dataset",
+    )
+    parser.add_argument(
+        "--env-embedds",
+        type=str,
+        default="item_embeddings_num_items",
     )
 
     return parser
@@ -74,6 +79,7 @@ if __name__ == "__main__":
 
         config_hash = hash_config(args, index=True)
         decoder_dir = args.data_dir + "GeMS/decoder/" + args.exp_name + "/"
+        args.env_embedds = f"item_embeddings_num_items{args.slate_size}.npy"
         pl.seed_everything(args.seed)
         torch.backends.cudnn.deterministic = args.torch_deterministic
         torch.set_float32_matmul_precision('medium')
@@ -153,7 +159,6 @@ if __name__ == "__main__":
                 f.write(f"total configurations: 1\n")
             
             f.write(f"total time: {round(time.time() - start_time, 2)} seconds\n")
-
 
 
         # set precision to 2 decimal places

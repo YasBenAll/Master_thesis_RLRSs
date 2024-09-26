@@ -63,11 +63,16 @@ def get_parser(parents=[], args=None):
         default=False,
         help="Whether to use ideal state",
     )
+    parser.add_argument(
+        "--env-embedds",
+        type=str,
+        default="item_embeddings_numitems",
+    )
     args, _ = parser.parse_known_args(args)
     return parser
 
 def create_environment(args, env_id, slate_size, num_item):
-    env = mo_gym.make(env_id, morl=False, slate_size=slate_size, num_item = num_item)
+    env = mo_gym.make(env_id, morl=False, slate_size=slate_size, num_items = num_item, env_embedds=f"{args.env_embedds}{num_item}.npy")
     if args.ideal_state:
         env = IdealState(env)
     return env
@@ -81,17 +86,17 @@ def select_logging_policy(args, env):
         raise ValueError(f"Unknown logging policy: {args.lp}")
 
 def save_dataset_and_embeddings(args, dataset, env, path_name):
-    path_dataset = os.path.join(args.data_dir,'datasets', path_name)
-    path_embeddings = os.path.join(args.data_dir,'datasets','embeddings', path_name)
+    path_dataset = os.path.join(args.data_dir,'datasets', path_name+".pt")
+    path_embeddings = os.path.join(args.data_dir,'datasets','embeddings', path_name+".npy")
     
     torch.save(dataset, os.path.join(path_dataset))
-    torch.save(env.unwrapped.item_embedd, os.path.join(path_embeddings))
+    np.save(os.path.join(path_embeddings), env.unwrapped.item_embedd)
     print(f"Dataset saved at: {path_dataset}")
     print(f"Embeddings saved at: {path_embeddings}")
 
 def generate_dataset(args):
     env_id_str = re.sub(r'[\W_]+', '', args.env_id)
-    path_name = f"{env_id_str}_{args.lp}_epsilon{args.eps}_seed{args.seed}_n_users{args.n_users}.pt"
+    path_name = f"{env_id_str}_{args.lp}_epsilon{args.eps}_seed{args.seed}_n_users{args.n_users}"
 
     env = create_environment(args, args.env_id)
     logging_policy = select_logging_policy(args, env)
@@ -108,14 +113,14 @@ def generate_dataset(args):
 
 def generate_datasets_for_multiple_configs(args):
     num_items = [100, 500, 1000]
-    slate_sizes = [10, 20]
+    slate_sizes = [3, 5]
     
     for num_item in num_items:
         for slate_size in slate_sizes:
             print(f"num_item: {num_item}, slate_size: {slate_size}")
             
-            env_id = f"SlateTopK-BoredInf-v0-num_item100-slate_size3"
-            env_name = f"SlateTopK-BoredInf-v0-num_item{num_item}-slate_size{slate_size}"
+            env_id = f"sardine/SlateTopK-Bored-v0"
+            env_name = f"SlateTopK-Bored-v0-num_item{num_item}-slate_size{slate_size}"
             env = create_environment(args, env_id, slate_size=slate_size, num_item = num_item)
             logging_policy = select_logging_policy(args, env)
 
@@ -128,7 +133,7 @@ def generate_datasets_for_multiple_configs(args):
             )
 
             env_id_str = re.sub(r'[\W_]+', '', env_name)
-            path_name = f"{env_id_str}_{args.lp}_epsilon{args.eps}_seed{args.seed}_n_users{args.n_users}.pt"
+            path_name = f"{env_id_str}_{args.lp}_epsilon{args.eps}_seed{args.seed}_n_users{args.n_users}"
             
             save_dataset_and_embeddings(args, dataset, env, path_name)
 

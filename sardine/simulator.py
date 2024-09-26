@@ -37,7 +37,6 @@ class Sardine(gym.Env):
                 diversity_penalty : float, diversity_threshold : int, click_prop : float,
                 boredom_type : _BOREDOM_TYPES, rel_penalty : bool, user_priors = None, morl: bool = False, render_mode=None, **kwargs):
         super().__init__()
-
         self.morl = morl
         self.recommended_items = set() 
         ### General parameters of the environment
@@ -139,9 +138,13 @@ class Sardine(gym.Env):
             embedd_norm = np.linalg.norm(self.item_embedd, axis = -1)
 
             self.item_embedd /= embedd_norm[:, np.newaxis]
-            np.save(os.path.join(DATA_REC_SIM_EMBEDDS, "item_embeddings"), self.item_embedd)
+            np.save(os.path.join(DATA_REC_SIM_EMBEDDS, f"item_embeddings_num_items{self.num_items}"), self.item_embedd)
         else: # Load existing item embeddings
-            self.item_embedd = np.load(os.path.join(DATA_REC_SIM_EMBEDDS, env_embedds))
+            import torch
+            if env_embedds[-3:] == ".pt":
+                self.item_embedd = torch.load(os.path.join(DATA_REC_SIM_EMBEDDS, env_embedds))
+            else:
+                self.item_embedd = np.load(os.path.join(DATA_REC_SIM_EMBEDDS, env_embedds))
 
     def _set_topic_for_items(self):
         """
