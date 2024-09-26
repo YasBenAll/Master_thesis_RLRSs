@@ -19,13 +19,12 @@ torch.manual_seed(seed)
 torch.cuda.manual_seed(seed)
 random.seed(seed)
 
-numitems = [500, 1000]
+numitems = [100, 500, 1000]
 slatesizes = [3, 5, 10, 20]
-
 for numitem in numitems:
     for slatesize in slatesizes:
         print(f"Training for numitem: {numitem} and slatesize: {slatesize}")
-        dataset = f"SlateTopKBoredInfv0numitem{numitem}slatesize{slatesize}_oracle_epsilon0.5_seed2023_n_users100000"
+        dataset = f"SlateTopKBoredv0numitem{numitem}slatesize{slatesize}_oracle_epsilon0.5_seed2023_n_users100000"
         arg_dict["dataset_name"] = dataset
         arg_dict["device"]="cuda"
         arg_dict["num_items"] = numitem
