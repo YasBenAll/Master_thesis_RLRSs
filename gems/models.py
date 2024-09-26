@@ -60,8 +60,7 @@ class GeMS(pl.LightningModule):
     def __init__(self, item_embeddings: str, data_dir: str, dataset: str, latent_dim: int, 
                     gems_lr: float, lambda_KL: float, lambda_click: float, slate_size: int, **kwargs):
         super().__init__()
-
-        weights = torch.tensor(torch.load(os.path.join(data_dir, "datasets", "embeddings", dataset)))      
+        weights = torch.tensor(np.load(os.path.join("sardine", "embeddings", f"item_embeddings_numitems{kwargs['num_items']}.npy")))      
         self.embeddings = nn.Embedding(*weights.shape, _weight = weights).requires_grad_(False)
         self.item_embedding_dim = weights.shape[1]
         self.slate_size = slate_size
