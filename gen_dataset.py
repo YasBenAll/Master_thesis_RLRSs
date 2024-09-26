@@ -113,7 +113,7 @@ def generate_dataset(args):
 
 def generate_datasets_for_multiple_configs(args):
     num_items = [100, 500, 1000]
-    slate_sizes = [3, 5]
+    slate_sizes = [3, 5, 10, 20]
     
     for num_item in num_items:
         for slate_size in slate_sizes:
