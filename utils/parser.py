@@ -28,13 +28,13 @@ def get_generic_parser(parents = []):
     parser.add_argument(
         "--exp-name",
         type=str,
-        default="test",
+        default="final",
         help="the name of this experiment",
     )
     parser.add_argument(
         "--run-name",
         type=str,
-        default="slate_size?",
+        default="final",
         help="the name of this run",
     )
     parser.add_argument(

@@ -36,6 +36,12 @@ def get_parser(parents = [], args = None):
         default="4910f9a5edb799495fcc6f154fe2ebf0cef4a44f6ceb59ce5e44a8d1ba093042",
         help="Name of the decoder",	
     )
+    parser.add_argument(
+        "--slate-size",
+        type=int,
+        default=10,
+        help="Size of the slate",
+    )
 
     if args is not None:
         args, _ = parser.parse_known_args(args)

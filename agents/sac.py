@@ -236,9 +236,10 @@ def make_env(
     ranker,
     args,
     decoder,
+    slate_size
 ):
     def thunk():
-        env = gym.make(env_id, morl = args.morl)
+        env = gym.make(env_id, morl = args.morl, slate_size = args.slate_size)
         env = gym.wrappers.RecordEpisodeStatistics(env)
         if ranker == "topk":
             # if args.item_embeddings == "ideal":
@@ -376,7 +377,7 @@ def train(args, decoder = None):
     # CSV logger
     import datetime
     start = datetime.datetime.now()
-    csv_filename = "vooronderzoek" + "-" +str(args.run_name) + "-" + str(datetime.datetime.now()) + "-seed" + str(args.seed) + ".log"
+    csv_filename = str(args.run_name) + "-" + str(datetime.datetime.now()) + "-seed" + str(args.seed) + ".log"
     # remove special characters
     import re
     csv_filename = re.sub(r"[^a-zA-Z0-9]+", '-', csv_filename)
@@ -401,6 +402,7 @@ def train(args, decoder = None):
                 args.ranker,
                 args,
                 decoder,
+                args.slate_size
             )
         ]
     )
@@ -413,6 +415,7 @@ def train(args, decoder = None):
                 args.ranker,
                 args,
                 decoder,
+                args.slate_size
             )
         ]
     )
@@ -737,7 +740,7 @@ def train(args, decoder = None):
                             torch.min(qf1_next_target, qf2_next_target)
                             - alpha * next_state_log_pi
                         )
-                        # min_qf_next_target = min_qf_next_target.sum(2, keepdim=False)
+                        min_qf_next_target = min_qf_next_target.sum(2, keepdim=False)
                         next_q_value = data.rewards.flatten() + (
                             1 - data.dones.flatten()
                         ) * args.gamma * min_qf_next_target.view(-1)
@@ -900,6 +903,7 @@ if __name__ == "__main__":
             save_code=True,
         )
 
+    input(args.runs)
     for i in range(args.runs):
         train(args)
 
