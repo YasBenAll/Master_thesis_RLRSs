@@ -142,10 +142,9 @@ class Sardine(gym.Env):
         else: # Load existing item embeddings
             import torch
             if env_embedds[-3:] == ".pt":
-                self.item_embedd = torch.load(os.path.join(DATA_REC_SIM_EMBEDDS, env_embedds))
+                self.item_embedd = torch.load(os.path.join("sardine", "embeddings", env_embedds))
             else:
-                self.item_embedd = np.load(os.path.join(DATA_REC_SIM_EMBEDDS, env_embedds))
-
+                self.item_embedd = np.load(os.path.join("sardine","embeddings", env_embedds))
     def _set_topic_for_items(self):
         """
         Sets main topic for each item
