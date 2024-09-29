@@ -31,16 +31,20 @@ def get_parser(parents = [], args = None):
         help="Whether to pretrain GeMS",
     )
     parser.add_argument(
-        "--decoder-name",
-        type=str,
-        default="4910f9a5edb799495fcc6f154fe2ebf0cef4a44f6ceb59ce5e44a8d1ba093042",
-        help="Name of the decoder",	
+        "--train",
+        type=lambda x: bool(strtobool(x)),
+        default=True,
     )
     parser.add_argument(
-        "--slate-size",
-        type=int,
-        default=10,
-        help="Size of the slate",
+        "--test",
+        type=lambda x: bool(strtobool(x)),
+        default=False,
+    )
+    parser.add_argument(
+        "--decoder-name",
+        type=str,
+        default="SlateTopKBoredv0numitem100slatesize3_oracle_epsilon0.5_seed2023_n_users100000.ptkl_divergence0.1_lambda_click0.0_latentdim16",
+        help="Name of the decoder",	
     )
 
     if args is not None:
@@ -72,6 +76,7 @@ def main(parents = []):
     torch.backends.cudnn.deterministic = args.torch_deterministic
     device = torch.device("cuda" if torch.cuda.is_available() and args.device == "cuda" else "cpu")
     if device.type != "cpu":
+        print("set default device to cuda")
         torch.set_default_device(device)
         torch.set_default_dtype(torch.float32)
     if args.track == "wandb":
@@ -87,15 +92,24 @@ def main(parents = []):
             save_code=True,
         )
     print("### Training agent ###")
-
-    if args.agent == "sac":
-        sac.train(args, decoder = decoder)
-    if args.agent == "slateQ":
-        slateQ.train(args)
-    if args.agent == "reinforce":
-        topk_reinforce.train(args)
-    if args.agent == "hac":
-        hac.train(args)
+    if args.train:
+        if args.agent == "sac":
+            sac.train(args, decoder = decoder)
+        if args.agent == "slateQ":
+            slateQ.train(args)
+        if args.agent == "reinforce":
+            topk_reinforce.train(args)
+        if args.agent == "hac":
+            hac.train(args)
+    if args.test:
+        if args.agent == "sac":
+            sac.test(args, decoder = decoder)
+        if args.agent == "slateQ":
+            slateQ.test(args)
+        if args.agent == "reinforce":
+            topk_reinforce.test(args)
+        if args.agent == "hac":
+            hac.test(args)
 
 if __name__ == "__main__":
     parser = get_generic_parser()

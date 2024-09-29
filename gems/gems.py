@@ -65,12 +65,6 @@ def get_parser(parents = []):
         help="Click loss weight in GeMS. (lambda)",
     ),
     parser.add_argument(
-        "--slate-size",
-        type=int,
-        default=3,
-        help="Size of slate.",
-    ), 
-    parser.add_argument(
         "--num_workers", 
         type=int,
         default=0,
@@ -157,6 +151,7 @@ class ReplayBufferDataModule(pl.LightningDataModule):
 def train(args, config_hash, dataset = None):
     # Model
     gems = GeMS(**vars(args))
+    
     print(gems)
     # Loggers
     loggers = []

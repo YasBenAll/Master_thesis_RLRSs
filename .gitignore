@@ -50,3 +50,5 @@ baselines_results.csv
 baselines_results.xlsx
 embeddings.ipynb
 /plots
+/data/sac_models
+/data/topk_reinforce

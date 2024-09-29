@@ -15,6 +15,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 
+from pathlib import Path
+
 from .buffer import RolloutBuffer, DictRolloutBuffer
 from .wrappers import IdealState, TopK, GeMS
 from .state_encoders import GRUStateEncoder, TransformerStateEncoder
@@ -169,7 +171,7 @@ def make_env(
     morl=False,
 ):
     def thunk():
-        env = gym.make(env_id, morl=morl)
+        env = gym.make(env_id, morl=morl, slate_size=args.slate_size, num_items=args.num_items, env_embedds = args.env_embedds)
         env = gym.wrappers.RecordEpisodeStatistics(env)
         if observable:
             env = IdealState(env)
@@ -231,24 +233,30 @@ def train(args, decoder = None):
             % ("\n".join([f"|{key}|{value}|" for key, value in vars(args).items()])),
         )
 
-   # CSV logger
+    # CSV logger
     import datetime
-    start = datetime.datetime.now()
-    csv_filename = str(args.run_name) + args.agent + "-" + str(datetime.datetime.now()) + "-seed" + str(args.seed)
-    # remove special characters
-    import re
-    csv_filename = re.sub(r"[^a-zA-Z0-9]+", '-', csv_filename)
+    start = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    csv_filename = f"sac_-seed{str(args.seed)}"
 
-    csv_path = "logs/" + csv_filename + ".log"
+    import re
+    # Using regex to find the numbers after 'numitem' and 'slatesize'
+    numitem_match = re.search(r'numitem(\d+)', args.decoder_name)
+    numitem_value = numitem_match.group(1) if numitem_match else None
+
+    csv_filename2 = f"reinforce_slatesize{args.slate_size}_num_items{numitem_value}_seed{str(args.seed)}-{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+    # remove special characters
+    csv_filename = re.sub(r"[^a-zA-Z0-9]+", '-', csv_filename)+".log"
+    csv_filename2 = re.sub(r"[^a-zA-Z0-9]+", '-', csv_filename2)+".log"
+
+    csv_path = "logs/" + csv_filename
+    csv_path2 = "logs/" + csv_filename2
     os.makedirs(os.path.dirname(csv_path), exist_ok=True)
-    with open (csv_path, "w") as f:
+    with open(csv_path2, "w") as f:
         f.write(f"Start: {start}\n")
         f.write(f"Run name: {run_name}\n")
         f.write(f"Config: {args}\n")
-        # write row
-        f.write("field,value,step\n")
-
-
+    csv_path = "logs/" + csv_filename + ".log"
+    os.makedirs(os.path.dirname(csv_path), exist_ok=True)
     # env setup
     envs = gym.vector.SyncVectorEnv(
         [
@@ -315,13 +323,14 @@ def train(args, decoder = None):
 
     start_ep = False
     count_ep = 0
+    max_val_return = 10e-5
     start_time = time.time()
     for global_step in range(args.total_timesteps + 1):
         with torch.inference_mode():
             if args.observable:
-                obs_d = torch.Tensor(obs)
+                obs_d = torch.Tensor(obs).to(args.device)
             else:
-                obs_d = actor_state_encoder.step(obs)
+                obs_d = actor_state_encoder.step(obs).to(args.device)
             actions = actor.get_action(obs_d).cpu().numpy()
 
         # TRY NOT TO MODIFY: execute the game and log data.
@@ -335,13 +344,13 @@ def train(args, decoder = None):
                 actor_state_encoder.reset()
             ep = 0
             cum_boredom = 0
-            val_returns, val_lengths, val_boredom = [], [], []
+            val_returns, val_lengths, val_boredom, val_diversity, val_catalog_coverage = [], [], [], [], []
             val_slates, val_user_pref = [[] for _ in range(args.n_val_episodes)], [[] for _ in range(args.n_val_episodes)]
             ep_rewards = []
             while ep < args.n_val_episodes:
                 with torch.inference_mode():
                     if args.observable:
-                        val_obs = torch.Tensor(val_obs)
+                        val_obs = torch.Tensor(val_obs).to(args.device)
                     else:
                         val_obs = actor_state_encoder.step(val_obs)
                     val_action = actor.get_action(val_obs).cpu().numpy()
@@ -364,7 +373,9 @@ def train(args, decoder = None):
                         if info is None:
                             continue
                         val_returns.append(info["episode"]["r"])
+                        val_diversity.append(info["diversity"])
                         val_lengths.append(info["episode"]["l"])
+                        val_catalog_coverage.append(info["catalog_coverage"])
                         val_boredom.append(cum_boredom)
                         cum_boredom = 0
                         ep += 1
@@ -372,8 +383,21 @@ def train(args, decoder = None):
                 else:
                     cum_boredom += (1.0 if np.sum(val_infos["bored"][0] == True) > 0 else 0.0)
 
+            if np.mean(val_returns) > max_val_return:
+                max_val_return = np.mean(val_returns)
+                # save the best model
+                Path(os.path.join("data", "topk_reinforce")).mkdir(parents=True, exist_ok=True)
+                torch.save(
+                    actor.state_dict(),
+                    os.path.join("data", "topk_reinforce", f"actor_best_slatesize{args.slate_size}_numitem{args.num_items}_{args.seed}.pt"),
+                )
+
+            with open(csv_path2, "a") as f:
+                f.write(
+                    f"\nStep {global_step}: clicks={np.mean(val_returns):.2f}, clicks_se={np.mean(val_returns)/np.sqrt(len(val_returns)):.2f}, diversity={np.mean(val_diversity):.2f}, diversity_se={np.mean(val_diversity)/np.sqrt(len(val_diversity))}, catalog coverage={np.mean(val_catalog_coverage):.2f}, catalog coverage_se={np.std(val_catalog_coverage)/np.sqrt(len(val_catalog_coverage)):.2f}"
+                )
             print(
-                f"Step {global_step}: return={np.mean(val_returns):.2f} (+- {np.std(val_returns):.2f}), boredom={np.mean(val_boredom):.2f}"
+                f"Step {global_step}: return={np.mean(val_returns):.2f} (+- {np.std(val_returns):.2f}), diversity={np.mean(val_diversity):.2f}, catalog coverage={np.mean(val_catalog_coverage):.2f}"
             )
             if args.track == "wandb":
                 val_user_pref = np.array(val_user_pref)
@@ -412,17 +436,6 @@ def train(args, decoder = None):
                 writer.add_scalar(
                     "val_charts/boredom", np.mean(val_boredom), global_step
                 )
-            with open(csv_path, "a") as csv_file:
-                # write row episodic return
-                csv_file.write(f"val_charts/episodic_return,{np.mean(val_returns)},{global_step}\n")
-                # Write row diversity
-                # csv_file.write(f"val_charts/diversity,{np.mean(val_diversity)},{global_step}\n")
-
-            # csv_writer.writerow(["val_charts/episodic_return", np.mean(val_returns), global_step])
-            # csv_writer.writerow(["val_charts/episodic_length", np.mean(val_lengths), global_step])
-            # csv_writer.writerow(["val_charts/SPS", int(np.sum(val_lengths) / (time.time() - val_start_time)), global_step])
-            # csv_writer.writerow(["val_charts/boredom", np.mean(val_boredom), global_step])
-            # csv_file.flush()
 
         if "final_info" in infos:
             if not args.observable:
@@ -446,10 +459,6 @@ def train(args, decoder = None):
                     writer.add_scalar(
                         "train_charts/episodic_length", info["episode"]["l"], global_step
                     )
-                with open(csv_path, "a") as csv_file:
-                    csv_file.write(f"train_charts/episodic_return,{info['episode']['r']},{global_step}\n")
-                # csv_writer.writerow(["train_charts/episodic_return", np.mean(info["episode"]["r"]), global_step])
-                # csv_writer.writerow(["train_charts/episodic_length", np.mean(info["episode"]["l"]), global_step])
 
         # TRY NOT TO MODIFY: save data to reply buffer; handle `final_observation`
         real_next_obs = next_obs.copy()
@@ -512,19 +521,76 @@ def train(args, decoder = None):
                 writer.add_scalar("train_charts/SPS",
                     int(global_step / (time.time() - start_time)),
                 )
-            with open(csv_path, "a") as f:
-                f.write(f"losses/actor_loss,{actor_loss.item()},{global_step}\n")
-                f.write(f"train_charts/SPS,{int(global_step / (time.time() - start_time))},{global_step}\n")
-                
-            # csv_writer.writerow(["losses/actor_loss", actor_loss.item(), global_step])
-            # csv_writer.writerow(["train_charts/SPS", int(global_step / (time.time() - start_time)), global_step])
             rb.reset()
 
     envs.close()
     if args.track == "tensorboard":
         writer.close()
-    csv_file.close()
 
+def test(args):
+    test_envs = gym.vector.SyncVectorEnv([make_env(args.env_id, idx=0, observable=args.observable, args=args)])
+
+    # Load the saved model state
+    model_path = os.path.join("data", "topk_reinforce", f"actor_best_slatesize{args.slate_size}_numitem{args.num_items}_{args.seed}.pt")
+    
+    slate_size = test_envs.envs[0].unwrapped.slate_size
+    num_items = test_envs.envs[0].unwrapped.num_items
+    actor = Actor(test_envs, args.hidden_size, args.state_dim, num_items, slate_size).to(args.device)
+
+    actor.load_state_dict(torch.load(model_path, weights_only=False))
+    print(f"Loaded model from {model_path}")
+
+    # Initialize the test environment
+    test_obs, _ = test_envs.reset(seed=args.seed+2)
+
+    if not args.observable:
+        if args.state_encoder == "gru":
+            StateEncoder = GRUStateEncoder
+        elif args.state_encoder == "transformer":
+            StateEncoder = TransformerStateEncoder
+        else:
+            StateEncoder = None
+        test_state_encoder = StateEncoder(test_envs, args).to(args.device)
+        test_state_encoder.reset()
+
+    # Run test episodes
+    ep = 0
+    cum_boredom = 0
+    test_returns, test_lengths, test_diversity, test_catalog_coverage = [], [], [], []
+    max_episodes = 500  # You can specify the number of test episodes to run
+    while ep < max_episodes:
+        with torch.no_grad():
+            if args.observable:
+                obs_tensor = torch.Tensor(test_obs).to(args.device)
+            else:
+                obs_tensor = test_state_encoder.step(test_obs).to(args.device)
+            actions = actor.get_action(obs_tensor).cpu().numpy()
+
+        # Take actions and get results
+        next_obs, rewards, terminated, truncated, infos = test_envs.step(actions)
+        test_obs = next_obs
+
+        if "final_info" in infos:
+            if not args.observable:
+                test_state_encoder.reset()
+            for info in infos["final_info"]:
+                if info is None:
+                    continue
+                test_returns.append(info["episode"]["r"])
+                test_diversity.append(info["diversity"])
+                test_lengths.append(info["episode"]["l"])
+                test_catalog_coverage.append(info["catalog_coverage"])
+                ep += 1
+
+    # Close the environment
+    test_envs.close()
+
+    # Print out test metrics
+    print(f"Test Results over {max_episodes} Episodes:")
+    print(f"Average Return: {np.mean(test_returns):.2f} ± {np.std(test_returns):.2f}")
+    print(f"Average Length: {np.mean(test_lengths):.2f} ± {np.std(test_lengths):.2f}")
+    print(f"Average Diversity: {np.mean(test_diversity):.2f} ± {np.std(test_diversity):.2f}")
+    print(f"Average Catalog Coverage: {np.mean(test_catalog_coverage):.2f} ± {np.std(test_catalog_coverage):.2f}")
 
 if __name__ == "__main__":
     args = get_parser([get_generic_parser()]).parse_args()
@@ -552,4 +618,3 @@ if __name__ == "__main__":
             save_code=True,
         )
 
-    train(args)

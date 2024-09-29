@@ -49,6 +49,7 @@ def get_generic_parser(parents = []):
         "--device",
         type=str,
         default="cuda",
+        choices = ["cuda", "cpu"],
         help="Device for training.",
     )
     parser.add_argument(
@@ -82,5 +83,28 @@ def get_generic_parser(parents = []):
         default="engagement",
         choices=["engagement", "diversity", "novelty"],
         help="Type of reward",
+    )
+    parser.add_argument(
+        "--env-embedds",
+        type=str,
+        default="item_embeddings_num_items",
+    )
+    parser.add_argument(
+        "--decoder_name",
+        type=str,
+        default="SlateTopKBoredv0numitem100slatesize3_oracle_epsilon0.5_seed2023_n_users100000.ptkl_divergence1.0_lambda_click0.5_latentdim16.pt",
+        help="Name of the decoder",	
+    )
+    parser.add_argument(
+        "--num-items",
+        type=int,
+        default=100,
+        help="Number of items in the environment.",
+    )
+    parser.add_argument(
+        "--slate-size",
+        type=int,
+        default=10,
+        help="Size of the slate.",
     )
     return parser

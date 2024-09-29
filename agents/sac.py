@@ -15,6 +15,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 
+from pathlib import Path
+
 from .buffer import ReplayBuffer, POMDPDictReplayBuffer
 from .wrappers import IdealState, TopK, GeMS
 from .state_encoders import GRUStateEncoder, TransformerStateEncoder
@@ -249,7 +251,7 @@ def make_env(
             # env = TopK(env, path, min_action = 0, max_action = 1)
         elif ranker == "gems":
             env = GeMS(env,
-                       path = args.data_dir + "GeMS/decoder/" + args.exp_name + "/" + '003753dba396f1ffac9969f66cd2f57e407dc14ba3729b2a1921fcbd8be577a4' + ".pt",
+                       path = os.path.join(args.data_dir, "GeMS/decoder/", args.exp_name, args.decoder_name+".pt"),
                        device = args.device,
                        decoder = decoder,
                     )
@@ -362,7 +364,6 @@ class Actor(nn.Module):
 
 def train(args, decoder = None):
     run_name = f"{args.env_id}__{args.run_name}__{args.seed}__{int(time.time())}"
-
     if args.track == "wandb":
         import wandb
     elif args.track == "tensorboard":
@@ -374,22 +375,6 @@ def train(args, decoder = None):
             % ("\n".join([f"|{key}|{value}|" for key, value in vars(args).items()])),
         )
 
-    # CSV logger
-    import datetime
-    start = datetime.datetime.now()
-    csv_filename = str(args.run_name) + "-" + str(datetime.datetime.now()) + "-seed" + str(args.seed) + ".log"
-    # remove special characters
-    import re
-    csv_filename = re.sub(r"[^a-zA-Z0-9]+", '-', csv_filename)
-
-    csv_path = "logs/" + csv_filename
-    os.makedirs(os.path.dirname(csv_path), exist_ok=True)
-    with open (csv_path, "w") as f:
-        f.write(f"Start: {start}\n")
-        f.write(f"Run name: {run_name}\n")
-        f.write(f"Config: {args}\n")
-        # write row
-        f.write("field,value,step\n")
 
 
     # env setup
@@ -422,6 +407,42 @@ def train(args, decoder = None):
     assert isinstance(
         envs.single_action_space, gym.spaces.Box
     ), "only continuous action space is supported"
+
+
+    # CSV logger
+    import datetime
+    start = datetime.datetime.now()
+    csv_filename = f"sac_-seed{str(args.seed)}"
+
+    import re
+    # Using regex to find the numbers after 'numitem' and 'slatesize'
+    numitem_match = re.search(r'numitem(\d+)', args.decoder_name)
+    numitem_value = numitem_match.group(1) if numitem_match else None
+
+    csv_filename2 = f"sac-{args.ranker}_slatesize{args.slate_size}_num_items{numitem_value}_seed{str(args.seed)}-{datetime.datetime.now()}"
+    # remove special characters
+    csv_filename = re.sub(r"[^a-zA-Z0-9]+", '-', csv_filename)+".log"
+    csv_filename2 = re.sub(r"[^a-zA-Z0-9]+", '-', csv_filename2)+".log"
+
+    csv_path = "logs/" + csv_filename
+    csv_path2 = "logs/" + csv_filename2
+    os.makedirs(os.path.dirname(csv_path), exist_ok=True)
+    with open(csv_path2, "w") as f:
+        f.write(f"Start: {start}\n")
+        f.write(f"Run name: {run_name}\n")
+        f.write(f"Config: {args}\n")
+
+    with open (csv_path, "w") as f:
+        f.write(f"Start: {start}\n")
+        f.write(f"Run name: {run_name}\n")
+        f.write(f"Config: {args}\n")
+        # write row
+        f.write("field,value,step\n")
+
+
+
+
+
     actor = Actor(envs, args.hidden_size, args.state_dim).to(args.device)
     qf1 = SoftQNetwork(envs, args.hidden_size, args.state_dim).to(args.device)
     qf1_target = SoftQNetwork(envs, args.hidden_size, args.state_dim).to(args.device)
@@ -492,7 +513,7 @@ def train(args, decoder = None):
     if not args.observable:
         actor_state_encoder.reset()
     envs.single_action_space.seed(args.seed)
-
+    max_val_return = 10e-5
     for global_step in range(args.total_timesteps + 1):
         # ALGO LOGIC: put action logic here
         if global_step < args.learning_starts:
@@ -523,7 +544,7 @@ def train(args, decoder = None):
                 actor_state_encoder.reset()
             ep = 0
             cum_boredom = 0
-            val_returns, val_lengths, val_boredom, val_diversity = [], [], [], []
+            val_returns, val_lengths, val_boredom, val_diversity, val_catalog_coverage = [], [], [], [], []
             val_errors, val_errors_norm = [], []
             val_slates, val_user_pref = [[] for _ in range(args.n_val_episodes)], [[] for _ in range(args.n_val_episodes)]
             val_protoactions = [[] for _ in range(args.n_val_episodes)]
@@ -580,6 +601,7 @@ def train(args, decoder = None):
                         val_returns.append(info["episode"]["r"])
                         val_diversity.append(info["diversity"])
                         val_lengths.append(info["episode"]["l"])
+                        val_catalog_coverage.append(info["catalog_coverage"])
                         val_boredom.append(cum_boredom)
                         cum_boredom = 0
                         ep += 1
@@ -587,16 +609,29 @@ def train(args, decoder = None):
                 else:
                     cum_boredom += (1.0 if np.sum(val_infos["bored"][0] == True) > 0 else 0.0)
 
-                # # save sac model for later analysis 
-                # if args.save_sac_model:
-                #     if ep == args.n_val_episodes:
-                #         torch.save(actor, f"actor_{global_step}.pt")
-                #         torch.save(qf1, f"critic_{global_step}.pt")
-                #         torch.save(qf1_target, f"critic_target_{global_step}.pt")
+            if np.mean(val_returns) > max_val_return:
+                max_val_return = np.mean(val_returns)
+                # save the best model
+                Path(os.path.join("data", "sac_models")).mkdir(parents=True, exist_ok=True)
+                torch.save(
+                    actor.state_dict(),
+                    os.path.join("data", "sac_models", f"actor_best_{args.ranker}_slatesize{args.slate_size}_numitem{args.num_items}_{args.seed}.pt"),                    
+                )
+                torch.save(
+                    qf1.state_dict(),
+                    os.path.join("data", "sac_models", f"qf1_best_{args.ranker}_slatesize{args.slate_size}_numitem{args.num_items}_{args.seed}.pt"),
+                )
+                torch.save(
+                    qf1_target.state_dict(),
+                    os.path.join("data", "sac_models", f"qf1_target_best_{args.ranker}_slatesize{args.slate_size}_numitem{args.num_items}_{args.seed}.pt"),
+                )
 
-
+            with open(csv_path2, "a") as f:
+                f.write(
+                    f"\nStep {global_step}: clicks={np.mean(val_returns):.2f}, clicks_se={np.mean(val_returns)/np.sqrt(len(val_returns)):.2f}, diversity={np.mean(val_diversity):.2f}, diversity_se={np.mean(val_diversity)/np.sqrt(len(val_diversity))}, catalog coverage={np.mean(val_catalog_coverage):.2f}, catalog coverage_se={np.std(val_catalog_coverage)/np.sqrt(len(val_catalog_coverage)):.2f}"
+                )
             print(
-                f"Step {global_step}: return={np.mean(val_returns):.2f} (+- {np.std(val_returns):.2f}), diversity={np.mean(val_diversity):.2f}"
+                f"Step {global_step}: return={np.mean(val_returns):.2f} (+- {np.std(val_returns):.2f}), diversity={np.mean(val_diversity):.2f}, catalog coverage={np.mean(val_catalog_coverage):.2f}"
             )
             if args.track == "wandb":
                 val_user_pref = np.array(val_user_pref)
@@ -876,6 +911,90 @@ def train(args, decoder = None):
     if args.track == "wandb":
         wandb.finish()
 
+def test(args, decoder=None):
+    # Initialize the test environment
+    test_envs = gym.vector.SyncVectorEnv([
+        make_env(
+            args.env_id,
+            idx=0,
+            observable=args.observable,
+            ranker=args.ranker,
+            args=args,
+            decoder=decoder,
+            slate_size=args.slate_size
+        )
+    ])
+
+    # Load the saved model state
+    model_path = os.path.join("data", "sac_models", f"actor_best_{args.ranker}_slatesize{args.slate_size}_numitem{args.num_items}_{args.seed}.pt")
+    
+    actor = Actor(test_envs, args.hidden_size, args.state_dim).to(args.device)
+    actor.load_state_dict(torch.load(model_path))
+    print(f"Loaded model from {model_path}")
+
+    # Initialize state encoder if environment is partially observable
+    if not args.observable:
+        if args.state_encoder == "gru":
+            StateEncoder = GRUStateEncoder
+        elif args.state_encoder == "transformer":
+            StateEncoder = TransformerStateEncoder
+        else:
+            StateEncoder = None
+        test_state_encoder = StateEncoder(test_envs, args).to(args.device)
+        test_state_encoder.reset()
+
+    # Reset the test environment with a different seed to ensure a fresh start
+    test_obs, _ = test_envs.reset(seed=args.seed + 2)
+
+    # Run test episodes
+    ep = 0
+    test_returns, test_lengths, test_diversity, test_catalog_coverage = [], [], [], []
+    max_episodes = 500  # Specify the number of test episodes to run
+    while ep < max_episodes:
+        with torch.no_grad():
+            # Prepare the observation for the actor model
+            if args.observable:
+                obs_tensor = torch.tensor(test_obs, dtype=torch.float32).to(args.device)
+            else:
+                obs_tensor = test_state_encoder.step(test_obs).to(args.device)
+
+            # Get actions from the actor model
+            actions = actor.get_action(obs_tensor)
+
+            # Convert actions to numpy if the ranker is not "gems"
+            if args.ranker != "gems":
+                actions = actions.cpu().numpy()
+
+        # Step in the environment with the actions
+        next_obs, rewards, terminated, truncated, infos = test_envs.step(actions)
+
+        # Handle the end of an episode
+        if "final_info" in infos:
+            if not args.observable:
+                test_state_encoder.reset()
+            for info in infos["final_info"]:
+                if info is None:
+                    continue
+                test_returns.append(info["episode"]["r"])
+                test_diversity.append(info["diversity"])
+                test_lengths.append(info["episode"]["l"])
+                test_catalog_coverage.append(info["catalog_coverage"])
+                ep += 1
+
+        # Update the observation
+        test_obs = next_obs
+
+    # Close the environment
+    test_envs.close()
+
+    # Print out test metrics
+    print(f"Test Results over {max_episodes} Episodes:")
+    print(f"Average Return: {np.mean(test_returns):.2f} ± {np.std(test_returns):.2f}")
+    print(f"Average Length: {np.mean(test_lengths):.2f} ± {np.std(test_lengths):.2f}")
+    print(f"Average Diversity: {np.mean(test_diversity):.2f} ± {np.std(test_diversity):.2f}")
+    print(f"Average Catalog Coverage: {np.mean(test_catalog_coverage):.2f} ± {np.std(test_catalog_coverage):.2f}")
+
+
 
 if __name__ == "__main__":
     args = get_parser([get_generic_parser()]).parse_args()
@@ -903,7 +1022,10 @@ if __name__ == "__main__":
             save_code=True,
         )
 
-    input(args.runs)
-    for i in range(args.runs):
-        train(args)
-
+    # Choose between training or testing
+    if args.run_mode == 'train':
+        for i in range(args.runs):
+            train(args)
+    elif args.run_mode == 'test':
+        # Set the path to the saved model and run the test
+        test(args)
