@@ -39,30 +39,19 @@ def get_parser(parents = [], args = None):
         help="Number of users to generate data for",
     )
     parser.add_argument(
-        "--num-items",
-        type=int,
-        default=100,
-        help="Number of items in the dataset",
-    )
-    parser.add_argument(
         "--n-users",
         type=int,
         default=100000,
         help="Number of users in the dataset",
     )
-    parser.add_argument(
-        "--env-embedds",
-        type=str,
-        default="item_embeddings_num_items",
-    )
 
     return parser
 
-def train_gems(args, num_item, slate_size, lambd, latent_dim, env_id):
+def train_gems(args, num_item, slate_size, beta, latent_dim, env_id):
     """Function to train GeMS with a specific configuration."""
     args.dataset = f"{env_id}numitem{num_item}slatesize{slate_size}_oracle_epsilon0.5_seed2023_n_users{args.n_users}.pt"
     args.slate_size = slate_size
-    args.lambda_click = lambd
+    args.lambda_KL = beta
     args.latent_dim = latent_dim
     config_hash = hash_config(args, index=True)
     print(f"Training GeMS with configurations: args.dataset={args.dataset}, args.slate_size={args.slate_size}, args.lambda_KL={args.lambda_KL}, args.lambda_click={args.lambda_click}, args.latent_dim={args.latent_dim}")
@@ -91,28 +80,30 @@ if __name__ == "__main__":
         num_items = [100,500, 1000]
         # slate_sizes = [5]
         # slate_sizes = [3, 5, 10, 20]
-        # kl_divergences = [0.1, 0.2, 0.5, 1.0, 2.0]
-        kl_divergences = [0.5]
+        kl_divergences = [0.1, 0.3, 0.5, 1.0, 2.0]
+        # kl_divergences = [0.0, 0.3]
         # lambda_clicks = [0.0, 0.3,0.5, 1.0]
-        lambda_clicks = [0.0, 0.3, 0.5, 1.0]
+        # lambda_clicks = [0.0, 0.3, 0.5, 1.0]
         # latent_dims = [16, 32]
         latent_dims = [16]
 
-        total = len(num_items) * len(lambda_clicks) * len(latent_dims)
+        total = len(kl_divergences)
         env_id = re.sub(r'[\W_]+', '', args.env_id)
         if args.multi:
             # number of combinations of hyperparameters
-            print(f"Number of combinations: {len(num_items) * len(lambda_clicks) * len(latent_dims)}")
+            # print(f"Number of combinations: {len(num_items) * len(lambda_clicks) * len(latent_dims)}")
             # Use ThreadPoolExecutor or ProcessPoolExecutor for concurrent executionp
             if args.concurrent: 
                 with concurrent.futures.ProcessPoolExecutor(max_workers=3) as executor:
                     futures = []
-                    for latent_dim in latent_dims:
-                        for lambd in lambda_clicks:
-                            for num_item in num_items:
-                                # for slate_size in slate_sizes:
-                                # Submit each configuration to the executor for parallel processing
-                                futures.append(executor.submit(train_gems, args, num_item, args.slate_size, lambd, latent_dim, env_id))
+                    # for latent_dim in latent_dims:
+                    for beta in kl_divergences:
+                        # for num_item in num_items:
+                        args.lambda_KL = args.lambda_KL
+                        args.dataset = f"{env_id}numitem{args.num_items}slatesize{args.slate_size}_oracle_epsilon0.5_seed2023_n_users{args.n_users}.pt"
+                        # for slate_size in slate_sizes:
+                        # Submit each configuration to the executor for parallel processing
+                        futures.append(executor.submit(train_gems, args, args.num_items, args.slate_size, beta, args.latent_dim, env_id))
 
                     # Collect results (if necessary)
                     for future in concurrent.futures.as_completed(futures):
@@ -120,13 +111,13 @@ if __name__ == "__main__":
                         print(f"Completed training with config: {config_hash}")
             else:
                 for latent_dim in latent_dims:
-                    for lambd in lambda_clicks:
+                    for beta in kl_divergences:
                         for num_item in num_items:
                             # for slate_size in slate_sizes:
                             args.dataset=f"{env_id}numitem{num_item}slatesize{args.slate_size}_oracle_epsilon0.5_seed2023_n_users{args.n_users}.pt"
                             # args.slate_size = slate_size
                             args.lambda_KL = args.lambda_KL
-                            args.lambda_click = lambd
+                            # args.lambda_click = lambd
                             args.latent_dim = latent_dim
                             config_hash = hash_config(args, index=True)
                             print(f"Training GeMS with configurations: args.dataset={args.dataset}, args.slate_size={args.slate_size}, args.lambda_KL={args.lambda_KL}, args.lambda_click={args.lambda_click}, args.latent_dim={args.latent_dim}")
@@ -137,7 +128,7 @@ if __name__ == "__main__":
             
         import os
         if args.multi:
-            log_folder = os.path.join("pretrain_gems", f"{env_id}numitem{num_items}slatesize{args.slate_size}_oracle_epsilon0.5_seed2023_n_users{args.n_users}.pt"[:-3]+".log")
+            log_folder = os.path.join("pretrain_gems", f"{env_id}numitem{args.num_items}slatesize{args.slate_size}_oracle_epsilon0.5_seed2023_n_users{args.n_users}.pt"[:-3]+".log")
         else:
             log_folder = os.path.join("pretrain_gems", f"{env_id}numitem{args.num_items}slatesize{args.slate_size}_oracle_epsilon0.5_seed2023_n_users{args.n_users}.pt"[:-3]+".log")
         with open(log_folder, "w") as f:
@@ -146,11 +137,11 @@ if __name__ == "__main__":
             f.write(f"n_users:{args.n_users}\n")
             f.write("\nconfigurations trained: \n")
             if args.multi:
-                for latent_dim in latent_dims:
-                    for lambd in lambda_clicks:
-                        for num_item in num_items:
+                # for latent_dim in latent_dims:
+                    # for lambd in lambda_clicks:
+                        # for num_item in num_items:
                             # for slate_size in slate_sizes:
-                            f.write(f"num_item: {num_item}, slate_size: {args.slate_size}, lambda_click: {lambd}, latent_dim: {latent_dim}\n")
+                            # f.write(f"num_item: {num_item}, slate_size: {args.slate_size}, lambda_click: {lambd}, latent_dim: {latent_dim}\n")
                 f.write(f"\nconcurrent: {args.concurrent}\n")
                 f.write(f"total configurations: {total}\n")
                 f.write(f"average training time per configuration: {round((time.time() - start_time)/total, 2)} seconds\n")
