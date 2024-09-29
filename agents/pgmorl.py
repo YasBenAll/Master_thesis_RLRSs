@@ -503,7 +503,7 @@ def make_env(env_id, seed, observation_shape, run_name, gamma, observable, decod
     """
 
     def thunk():
-        env = GeMS(mo_gym.make(env_id, morl=True), 
+        env = GeMS(mo_gym.make(env_id, morl=True, slate_size=args.slate_size, env_embedds=args.env_embedds, num_items=args.num_items), 
                     path = args.data_dir + "GeMS/decoder/" + args.exp_name + "/" + args.run_name + ".pt",
                     device = args.device,
                     decoder = decoder,
@@ -583,8 +583,6 @@ class PGMORL(MOAgent):
         envs: gym.Env = None,	
         val_envs: gym.Env = None,
         buffer: ABC = None,
-        num_topics: int = 19,
-        slate_size: int = 8,
         agent: str = 'MOPPO'
 
         
@@ -653,8 +651,7 @@ class PGMORL(MOAgent):
         self.ranker = ranker
         self.args = args
         self.buffer = buffer
-        self.slate_size = slate_size
-        self.num_topics = num_topics
+        # self.num_topics = num_topics
         # self.observation_space = gym.spaces.Dict({
         #     'slate': gym.spaces.MultiDiscrete([self.num_items for i in range(self.slate_size)]),
         #     'clicks': gym.spaces.MultiBinary(self.slate_size),
@@ -983,6 +980,7 @@ class PGMORL(MOAgent):
         self.start_time = time.time()
 
         # Warmup
+        print("total warmup iterations", self.warmup_iterations)
         for i in range(1, self.warmup_iterations + 1):
             print(f"Warmup iteration #{iteration}")
             if self.log:
@@ -999,7 +997,7 @@ class PGMORL(MOAgent):
 
         # Evolution
         max_iterations = max(max_iterations, self.warmup_iterations + self.evolutionary_iterations)
-        input(f"max iterations {max_iterations}")
+        # input(f"max iterations {max_iterations}")
         evolutionary_generation = 1
 
         ############ TEMPORARY
@@ -1059,9 +1057,6 @@ def train(args, decoder = None):
             monitor_gym=False,
             save_code=True,
         )
-
-
-      
 
     model = PGMORL(
         env_id=args.env_id,

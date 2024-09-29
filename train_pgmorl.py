@@ -82,9 +82,21 @@ def get_parser(parents = []):
     )
     parser.add_argument(
         "--total-timesteps",
-        type=int,
-        default=1e6,
+        type=float,
+        default=100000.0,
         help="Total number of timesteps for training.",
+    )
+    parser.add_argument(
+        "--steps-per-iteration",
+        type=int,
+        default=1e4,
+        help="Total number of timesteps for training.",
+    )
+    parser.add_argument(
+        "--warmup-iterations",
+        type=int,
+        default=5,
+        help="Number of warmup iterations.",
     )
     return parser
 
@@ -98,7 +110,7 @@ from agents.pgmorl import PGMORL, make_env
 
 if __name__ == "__main__":
     args = get_parser([get_generic_parser()]).parse_args()
-    decoder = torch.load(os.path.join(args.data_dir,"GeMS", "decoder", args.exp_name, "e5938782b93eca33d86f340ac2f09eb5b79aae6379d99a20964d768861abed32.pt"), map_location=torch.device('cpu')).to(args.device)
+    decoder = torch.load(os.path.join(args.data_dir,"GeMS", "decoder", args.exp_name, args.decoder_name), map_location=torch.device('cpu')).to(args.device)
     pl.seed_everything(args.seed)
     torch.backends.cudnn.deterministic = args.torch_deterministic
     device = torch.device("cuda" if torch.cuda.is_available() and args.device == "cuda" else "cpu")
@@ -109,7 +121,8 @@ if __name__ == "__main__":
         env_id=env_id,
         num_envs=2,
         pop_size=4,
-        warmup_iterations=5,
+        warmup_iterations=args.warmup_iterations,
+        steps_per_iteration=args.steps_per_iteration,
         evolutionary_iterations=20,
         num_weight_candidates=7,
         origin=np.array([0.0, 0.0]),
@@ -120,6 +133,7 @@ if __name__ == "__main__":
         gamma = 0.8,
         device = device, 
         agent = args.agent
+
     )
     print("Training PGMORL")
     eval_env = make_env(env_id=env_id, seed=42, run_name="Sardine_pgmorl", gamma=0.8, observable=False, decoder=decoder, observation_shape = 16, args = args)()
