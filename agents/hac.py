@@ -1,4 +1,5 @@
 import argparse
+import datetime
 import os
 import csv
 import random
@@ -16,6 +17,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 
+from pathlib import Path
+
 from .buffer import DictReplayBuffer, POMDPDictReplayBuffer
 from .wrappers import IdealState
 from .state_encoders import GRUStateEncoder, TransformerStateEncoder
@@ -24,6 +27,8 @@ from utils.parser import get_generic_parser
 from utils.file import hash_config, args2str
 
 torch.set_float32_matmul_precision('high')
+
+DATE = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
 def get_parser(parents = []):
     parser = argparse.ArgumentParser(parents = parents, add_help = False)
@@ -396,24 +401,30 @@ def train(args):
             % ("\n".join([f"|{key}|{value}|" for key, value in vars(args).items()])),
         )
 
-   # CSV logger
-    import datetime
-    start = datetime.datetime.now()
-    csv_filename = str(args.run_name) + args.agent + "-" + str(datetime.datetime.now()) + "-seed" + str(args.seed)
-    # remove special characters
-    import re
-    csv_filename = re.sub(r"[^a-zA-Z0-9]+", '-', csv_filename)
 
-    csv_path = "logs/" + csv_filename + ".log"
+    start = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    csv_filename = f"sac_-seed{str(args.seed)}"
+
+    import re
+    # Using regex to find the numbers after 'numitem' and 'slatesize'
+    numitem_match = re.search(r'numitem(\d+)', args.decoder_name)
+    numitem_value = numitem_match.group(1) if numitem_match else None
+
+    csv_filename2 = f"hac_slatesize{args.slate_size}_num_items{numitem_value}_seed{str(args.seed)}-{DATE}"
+    # remove special characters
+    csv_filename = re.sub(r"[^a-zA-Z0-9]+", '-', csv_filename)+".log"
+    csv_filename2 = re.sub(r"[^a-zA-Z0-9]+", '-', csv_filename2)+".log"
+
+    csv_path = "logs/" + csv_filename
+    csv_path2 = "logs/" + csv_filename2
     os.makedirs(os.path.dirname(csv_path), exist_ok=True)
-    with open (csv_path, "w") as f:
+    with open(csv_path2, "w") as f:
         f.write(f"Start: {start}\n")
         f.write(f"Run name: {run_name}\n")
         f.write(f"Config: {args}\n")
-        # write row
-        f.write("field,value,step\n")
-
-
+    csv_path = "logs/" + csv_filename + ".log"
+    os.makedirs(os.path.dirname(csv_path), exist_ok=True)
+    # env setup
     # env setup
     envs = gym.vector.SyncVectorEnv(
         [
@@ -509,6 +520,7 @@ def train(args):
         actor_state_encoder.reset()
     hyper_action_space.seed(args.seed)
 
+    max_val_return = 10e-5
     for global_step in range(args.total_timesteps + 1):
         # ALGO LOGIC: put action logic here
         if global_step < args.learning_starts:
@@ -538,7 +550,7 @@ def train(args):
                 actor_state_encoder.reset()
             ep = 0
             cum_boredom = 0
-            val_returns, val_lengths, val_boredom = [], [], []
+            val_returns, val_lengths, val_boredom, val_diversity, val_catalog_coverage = [], [], [], [], []
             val_errors, val_errors_norm = [], []
             ep_rewards, pred_q_values = [], []
             while ep < args.n_val_episodes:
@@ -582,12 +594,26 @@ def train(args):
                             continue
                         val_returns.append(info["episode"]["r"])
                         val_lengths.append(info["episode"]["l"])
+                        val_diversity.append(info["diversity"])
                         val_boredom.append(cum_boredom)
                         cum_boredom = 0
                         ep += 1
                         ep_rewards, pred_q_values = [], []
                 else:
                     cum_boredom += (1.0 if np.sum(val_infos["bored"][0] == True) > 0 else 0.0)
+
+            if np.mean(val_returns) > max_val_return:
+                max_val_return = np.mean(val_returns)
+                # save the best model
+                Path(os.path.join("data", "topk_hac")).mkdir(parents=True, exist_ok=True)
+                torch.save(
+                    actor.state_dict(),
+                    os.path.join("data", "topk_hac", f"actor_best_slatesize{args.slate_size}_numitem{args.num_items}_{args.seed}.pt"),
+                )
+            with open(csv_path2, "a") as f:
+                f.write(
+                    f"\nStep {global_step}: clicks={np.mean(val_returns):.2f}, clicks_se={np.mean(val_returns)/np.sqrt(len(val_returns)):.2f}, diversity={np.mean(val_diversity):.2f}, diversity_se={np.mean(val_diversity)/np.sqrt(len(val_diversity))}, catalog coverage={np.mean(val_catalog_coverage):.2f}, catalog coverage_se={np.std(val_catalog_coverage)/np.sqrt(len(val_catalog_coverage)):.2f}"
+                )
 
             print(
                 f"Step {global_step}: return={np.mean(val_returns):.2f} (+- {np.std(val_returns):.2f}), boredom={np.mean(val_boredom):.2f}"
@@ -856,6 +882,87 @@ def train(args):
     if args.track == "tensorboard":
         writer.close()
     csv_file.close()
+
+
+
+def test(args):
+    test_envs = gym.vector.SyncVectorEnv([make_env(args.env_id, idx=0, observable=args.observable, args=args)])
+    
+    model_path = os.path.join("data", "topk_hac", f"actor_best_slatesize{args.slate_size}_numitem{args.num_items}_{args.seed}.pt")
+
+    item_features = test_envs.envs[0].unwrapped.item_embedd
+    slate_size = test_envs.envs[0].unwrapped.slate_size
+
+    if args.raw_features:  # The latent space is the item raw feature space
+        args.latent_dim = item_features.shape[1]
+    
+    actor = Actor(
+        test_envs, args.hidden_size, args.state_dim, slate_size, args.latent_dim,
+        args.latent_high, args.latent_low, args.reparam_std, item_features,
+        args.raw_features
+    ).to(args.device)
+
+    # Load the saved model state
+    actor.load_state_dict(torch.load(model_path))
+    print(f"Loaded model from {model_path}")
+
+    # Initialize the test environment
+    test_obs, _ = test_envs.reset(seed=args.seed + 2)
+
+    if not args.observable:
+        if args.state_encoder == "gru":
+            StateEncoder = GRUStateEncoder
+        elif args.state_encoder == "transformer":
+            StateEncoder = TransformerStateEncoder
+        else:
+            StateEncoder = None
+        test_state_encoder = StateEncoder(test_envs, args).to(args.device)
+        test_state_encoder.reset()
+
+    # Run test episodes
+    ep = 0
+    cum_boredom = 0
+    test_returns, test_lengths, test_diversity, test_catalog_coverage = [], [], [], []
+    max_episodes = 500  # Number of test episodes to run
+    while ep < max_episodes:
+        with torch.no_grad():
+            if args.observable:
+                obs_tensor = torch.Tensor(test_obs).to(args.device)
+            else:
+                obs_tensor = test_state_encoder.step(test_obs).to(args.device)
+            actions = actor.get_action(obs_tensor).cpu().numpy()
+
+        # Take actions and get results
+        next_obs, rewards, terminated, truncated, infos = test_envs.step(actions)
+        test_obs = next_obs
+
+        if "final_info" in infos:
+            if not args.observable:
+                test_state_encoder.reset()
+            for info in infos["final_info"]:
+                if info is None:
+                    continue
+                test_returns.append(info["episode"]["r"])
+                test_diversity.append(info["diversity"])
+                test_lengths.append(info["episode"]["l"])
+                test_catalog_coverage.append(info["catalog_coverage"])
+                ep += 1
+
+    # Close the environment
+    test_envs.close()
+
+    # Print out test metrics
+    print(f"Test Results over {max_episodes} Episodes:")
+    print(f"Average Return: {np.mean(test_returns):.2f} ± {np.std(test_returns):.2f}")
+    print(f"Average Length: {np.mean(test_lengths):.2f} ± {np.std(test_lengths):.2f}")
+    print(f"Average Diversity: {np.mean(test_diversity):.2f} ± {np.std(test_diversity):.2f}")
+    print(f"Average Catalog Coverage: {np.mean(test_catalog_coverage):.2f} ± {np.std(test_catalog_coverage):.2f}")
+
+    with open(os.path.join("logs", f"hac_test_slatesize{args.slate_size}_num_items{args.num_items}_seed{str(args.seed)}-{DATE}.txt"), "w") as f:
+        f.write(f"Average Return: {np.mean(test_returns):.2f} ± {np.std(test_returns):.2f}\n")
+        f.write(f"Average Length: {np.mean(test_lengths):.2f} ± {np.std(test_lengths):.2f}\n")
+        f.write(f"Average Diversity: {np.mean(test_diversity):.2f} ± {np.std(test_diversity):.2f}\n")
+        f.write(f"Average Catalog Coverage: {np.mean(test_catalog_coverage):.2f} ± {np.std(test_catalog_coverage):.2f}\n")
 
 
 if __name__ == "__main__":
