@@ -88,9 +88,15 @@ def get_generic_parser(parents = []):
         "--env-embedds",
         type=str,
         default="item_embeddings_num_items",
+    ),
+    parser.add_argument(
+        "--item-embeddings",
+        type=str,
+        default="ideal",
+        choices=["ideal", "mf"],
     )
     parser.add_argument(
-        "--decoder_name",
+        "--decoder-name",
         type=str,
         default="SlateTopKBoredv0numitem100slatesize3_oracle_epsilon0.5_seed2023_n_users100000.ptkl_divergence1.0_lambda_click0.5_latentdim16.pt",
         help="Name of the decoder",	

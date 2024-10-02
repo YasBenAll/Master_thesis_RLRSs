@@ -35,7 +35,7 @@ class Sardine(gym.Env):
                 recent_items_maxlen : int, boredom_threshold : int, boredom_moving_window : int, 
                 env_embedds : str, click_model : _CLICK_MODELS, rel_threshold : float, 
                 diversity_penalty : float, diversity_threshold : int, click_prop : float,
-                boredom_type : _BOREDOM_TYPES, rel_penalty : bool, user_priors = None, morl: bool = False, render_mode=None, **kwargs):
+                boredom_type : _BOREDOM_TYPES, rel_penalty : bool, user_priors = None, morl: bool = False, render_mode=None, reward_type: str ="click", **kwargs):
         super().__init__()
         self.morl = morl
         self.recommended_items = set() 
@@ -53,6 +53,8 @@ class Sardine(gym.Env):
             }
         )
         self.action_space = spaces.MultiDiscrete([num_items] * slate_size)
+        self.reward_type = reward_type
+
 
         ### Click model
         self._set_propensities(click_model, click_prop, env_propensities, env_alpha)
@@ -85,15 +87,14 @@ class Sardine(gym.Env):
     def engagement_reward(self, clicks):
         return sum(clicks)
 
-    def diversity_reward(self, slate):
-        distances = [self.jaccard_distance(i, j) for i, j in combinations(slate, 2)]
-        return sum(distances) / (len(slate) * (len(slate) - 1))
 
-    def jaccard_distance(self, item1, item2):
-        # define for each index whether the value is the same for both items
-        same = [i == j for i, j in zip(item1, item2)]
-        # calculate the Jaccard distance
-        return 1 - sum(same) / len(same) 
+
+    def diversity_reward(self, slate):
+        from scipy.spatial.distance import cosine
+        from itertools import combinations
+        distances = [cosine(item1, item2) for item1, item2 in combinations(slate, 2)]
+        diversity = sum(distances) / len(distances) if distances else 0.0
+        return diversity
 
     def novelty_reward(self, slate):
         # return np.mean([-np.log2(item_popularity[i]) for i in slate])
@@ -384,9 +385,12 @@ class Sardine(gym.Env):
         info["catalog_coverage"] = catalog_coverage
 
         if self.morl:
-            return obs, np.array([self.engagement_reward(clicks), self.diversity_reward(self.item_embedd[slate])]), terminated, False, info
+            return obs, np.array([self.engagement_reward(clicks), 1/2*self.diversity_reward(self.item_embedd[slate])]), terminated, False, info
         else:
-            return obs, self.engagement_reward(clicks), terminated, False, info
+            if self.reward_type == "diversity":
+                return obs, self.diversity_reward(self.item_embedd[slate]), terminated, False, info
+            else:
+                return obs, self.engagement_reward(clicks), terminated, False, info
     def _append_dict_values(self, old_dict, append_dict):
         for k in old_dict.keys():
             if isinstance(old_dict[k], dict):

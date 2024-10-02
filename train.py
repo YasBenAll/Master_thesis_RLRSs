@@ -41,10 +41,10 @@ def get_parser(parents = [], args = None):
         default=False,
     )
     parser.add_argument(
-        "--decoder-name",
+        "--reward-type",
         type=str,
-        default="SlateTopKBoredv0numitem100slatesize3_oracle_epsilon0.5_seed2023_n_users100000.ptkl_divergence0.1_lambda_click0.0_latentdim16",
-        help="Name of the decoder",	
+        default="click",
+        choices=["click", "diversity"],
     )
 
     if args is not None:
@@ -76,9 +76,7 @@ def main(parents = []):
     torch.backends.cudnn.deterministic = args.torch_deterministic
     device = torch.device("cuda" if torch.cuda.is_available() and args.device == "cuda" else "cpu")
     if device.type != "cpu":
-        print("set default device to cuda")
-        torch.set_default_device(device)
-        torch.set_default_dtype(torch.float32)
+        torch.set_default_tensor_type("torch.cuda.FloatTensor")
     if args.track == "wandb":
         import wandb
         run_name = f"{args.exp_name}_{args.run_name}_seed{args.seed}_{int(time.time())}"

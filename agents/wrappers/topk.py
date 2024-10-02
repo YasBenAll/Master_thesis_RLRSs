@@ -2,7 +2,7 @@
 from typing import Union
 
 import numpy as np
-
+import torch
 import gymnasium as gym
 
 
@@ -24,7 +24,9 @@ class TopK(gym.ActionWrapper):
         if embeddings == "ideal":
             self.embeddings = self.env.item_embedd
         else:
-            self.embeddings = np.load(embeddings)
+            self.embeddings = torch.load(embeddings)
+            # convert to numpy
+            self.embeddings = self.embeddings.detach().cpu().numpy()
 
         if min_action is None:
             min_action = np.min(self.embeddings)

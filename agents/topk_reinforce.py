@@ -1,4 +1,5 @@
 import argparse
+import datetime
 import os
 import csv
 import random
@@ -25,6 +26,8 @@ from utils.parser import get_generic_parser
 from utils.file import hash_config, args2str
 
 torch.set_float32_matmul_precision('high')
+
+DATE = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
 def get_parser(parents = []):
     parser = argparse.ArgumentParser(parents = parents, add_help = False)
@@ -234,7 +237,7 @@ def train(args, decoder = None):
         )
 
     # CSV logger
-    import datetime
+
     start = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     csv_filename = f"sac_-seed{str(args.seed)}"
 
@@ -243,7 +246,7 @@ def train(args, decoder = None):
     numitem_match = re.search(r'numitem(\d+)', args.decoder_name)
     numitem_value = numitem_match.group(1) if numitem_match else None
 
-    csv_filename2 = f"reinforce_slatesize{args.slate_size}_num_items{numitem_value}_seed{str(args.seed)}-{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+    csv_filename2 = f"reinforce_slatesize{args.slate_size}_num_items{numitem_value}_seed{str(args.seed)}-{DATE}"
     # remove special characters
     csv_filename = re.sub(r"[^a-zA-Z0-9]+", '-', csv_filename)+".log"
     csv_filename2 = re.sub(r"[^a-zA-Z0-9]+", '-', csv_filename2)+".log"
@@ -591,6 +594,12 @@ def test(args):
     print(f"Average Length: {np.mean(test_lengths):.2f} ± {np.std(test_lengths):.2f}")
     print(f"Average Diversity: {np.mean(test_diversity):.2f} ± {np.std(test_diversity):.2f}")
     print(f"Average Catalog Coverage: {np.mean(test_catalog_coverage):.2f} ± {np.std(test_catalog_coverage):.2f}")
+
+    with open(f"reinforce_test_slatesize{args.slate_size}_num_items{args.num_items}_seed{str(args.seed)}-{DATE}.txt", "w") as f:
+        f.write(f"Average Return: {np.mean(test_returns):.2f} ± {np.std(test_returns):.2f}\n")
+        f.write(f"Average Length: {np.mean(test_lengths):.2f} ± {np.std(test_lengths):.2f}\n")
+        f.write(f"Average Diversity: {np.mean(test_diversity):.2f} ± {np.std(test_diversity):.2f}\n")
+        f.write(f"Average Catalog Coverage: {np.mean(test_catalog_coverage):.2f} ± {np.std(test_catalog_coverage):.2f}\n")
 
 if __name__ == "__main__":
     args = get_parser([get_generic_parser()]).parse_args()
