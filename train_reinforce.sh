@@ -34,5 +34,5 @@ echo "Num items: $NUM_ITEMS"
 
 
 # Run the actual experiment
-python /var/scratch/yal700/Master_thesis_RLRSs/train.py --agent reinforce --total-timesteps 5000 --val-interval 1000 --policy-frequency 1 --buffer-size 100 --env-id sardine/SlateTopK-Bored-v0 --morl False  --device cuda --observable True --slate-size 3  --exp-name final_actual --seed $SEED --env-id sardine/SlateTopK-Bored-v0 --num-items $SLATE_SIZE --env-embedds item_embeddings_numitems$SLATE_SIZE.npy --train True --test True
+python /var/scratch/yal700/Master_thesis_RLRSs/train.py --agent reinforce --total-timesteps 5000 --val-interval 1000 --policy-frequency 1 --buffer-size 100 --env-id sardine/SlateTopK-Bored-v0 --morl False  --device cuda --observable True --slate-size 3  --exp-name final_actual --seed $SEED --env-id sardine/SlateTopK-Bored-v0 --num-items $NUM_ITEMS --env-embedds item_embeddings_numitems$SLATE_SIZE.npy --train True --test True
 deactivate
