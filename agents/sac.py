@@ -32,13 +32,13 @@ def get_parser(parents = []):
     parser.add_argument(
         "--env-id",
         type=str,
-        default="ml-100k-v0",
+        default="sardine/SlateTopK-Bored-v0",
         help="the id of the environment",
     )
     parser.add_argument(
         "--observable",
         type=lambda x: bool(strtobool(x)),
-        default=False,
+        default=True,
         nargs="?",
         const=True,
         help="if toggled, an observation with full state environment will be passed.",
@@ -52,16 +52,16 @@ def get_parser(parents = []):
     parser.add_argument(
         "--val-interval",
         type=int,
-        default=1000,
+        default=50000,
         help="Number of timesteps between validation episodes.",
     )
     parser.add_argument(
-        "--learning-starts", type=int, default=1e3, help="timestep to start learning"
+        "--learning-starts", type=int, default=1e4, help="timestep to start learning"
     )
     parser.add_argument(
         "--n-val-episodes",
         type=int,
-        default=20,
+        default=10,
         help="Number of validation episodes.",
     )
     parser.add_argument(
@@ -238,17 +238,18 @@ def make_env(
     ranker,
     args,
     decoder,
-    slate_size
+    slate_size,
+    reward_type
 ):
     def thunk():
-        env = gym.make(env_id, morl = args.morl, slate_size = args.slate_size)
+        env = gym.make(env_id, morl = args.morl, slate_size = args.slate_size, reward_type = reward_type)
         env = gym.wrappers.RecordEpisodeStatistics(env)
         if ranker == "topk":
-            # if args.item_embeddings == "ideal":
-            env = TopK(env, "ideal", min_action = 0, max_action = 1)
-            #elif args.item_embeddings == "custom":
-            # path = args.data_dir + "datasets/mf_embeddings/" + args.env_id + "_epsilon0.5_seed2023.npy"
-            # env = TopK(env, path, min_action = 0, max_action = 1)
+            if args.item_embeddings == "ideal":
+                env = TopK(env, "ideal", min_action = 0, max_action = 1)
+            elif args.item_embeddings == "mf":
+                path = os.path.join(args.data_dir, "datasets", "mf_embeddings", f"SlateTopKBoredv0numitem{args.num_items}_slatesize{args.slate_size}_nusers100000.pt")
+                env = TopK(env, path, min_action = 0, max_action = 1)
         elif ranker == "gems":
             env = GeMS(env,
                        path = os.path.join(args.data_dir, "GeMS/decoder/", args.exp_name, args.decoder_name+".pt"),
@@ -346,7 +347,7 @@ class Actor(nn.Module):
         return mean, log_std
 
     def get_action(self, x, return_prob = False):
-        mean, log_std = self(x)
+        mean, log_std = self(x.to("cuda"))
         std = log_std.exp()
         eps = torch.randn_like(std)
         x_t = mean + eps * std  # for reparameterization trick (mean + std * N(0,1))
@@ -387,7 +388,8 @@ def train(args, decoder = None):
                 args.ranker,
                 args,
                 decoder,
-                args.slate_size
+                args.slate_size,
+                reward_type=args.reward_type
             )
         ]
     )
@@ -400,7 +402,8 @@ def train(args, decoder = None):
                 args.ranker,
                 args,
                 decoder,
-                args.slate_size
+                args.slate_size,
+                reward_type=args.reward_type
             )
         ]
     )
@@ -555,8 +558,8 @@ def train(args, decoder = None):
                         val_obs = torch.Tensor(val_obs)
                     else:
                         val_obs = actor_state_encoder.step(val_obs)
-                    val_action = actor.get_action(val_obs)
-                    pred_q_values.append(qf1(val_obs, val_action).item())
+                    val_action = actor.get_action(val_obs.to(args.device))
+                    pred_q_values.append(qf1(val_obs.to(args.device), val_action.to(args.device)).item())
                 if args.ranker == "gems":
                     (
                         val_next_obs,
@@ -921,7 +924,8 @@ def test(args, decoder=None):
             ranker=args.ranker,
             args=args,
             decoder=decoder,
-            slate_size=args.slate_size
+            slate_size=args.slate_size,
+            reward_type=args.reward_type
         )
     ])
 
