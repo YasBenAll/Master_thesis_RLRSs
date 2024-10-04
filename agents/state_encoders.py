@@ -56,6 +56,7 @@ class GRUStateEncoder(AbstractStateEncoder):
         self.h = torch.zeros(self.num_layers, self.state_dim)
 
     def step(self, obs):
+        # input(f"obs['slate']: {type(obs['slate'])}, {obs['slate'].shape}")
         items = self.item_embeddings(torch.tensor(obs["slate"])) # (num_envs, rec_size, item_embedd_dim)
         clicks = self.click_embeddings(torch.tensor(obs["clicks"], dtype = torch.long)) # (num_envs, rec_size, click_embedd_dim)
         mean_items = items.mean(dim = -2) # (num_envs, item_embedd_dim)
@@ -65,11 +66,11 @@ class GRUStateEncoder(AbstractStateEncoder):
         return out
 
     def forward(self, obs):
-        items = self.item_embeddings(torch.tensor(obs["slate"])) # (batch_size, seq_len, rec_size, item_embedd_dim)
-        clicks = self.click_embeddings(torch.tensor(obs["clicks"]).long()) # (batch_size, seq_len, rec_size, click_embedd_dim)
+        items = self.item_embeddings(obs["slate"].clone().detach()) # (batch_size, seq_len, rec_size, item_embedd_dim)
+        clicks = self.click_embeddings(obs["clicks"].clone().detach().long()) # (batch_size, seq_len, rec_size, click_embedd_dim)
         mean_items = items.mean(dim = -2) # (batch_size, seq_len, item_embedd_dim)
         clicks = clicks.flatten(start_dim = -2) # (batch_size, seq_len, rec_size * click_embedd_dim)
-        hist = torch.tensor(obs["hist"]) # (batch_size, seq_len, num_topics)
+        hist = obs["hist"].clone().detach() # (batch_size, seq_len, num_topics)
         return self.gru(torch.cat([mean_items, clicks, hist], dim = -1))[0]
 
 class TransformerStateEncoder(AbstractStateEncoder):

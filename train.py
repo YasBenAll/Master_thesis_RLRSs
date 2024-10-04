@@ -46,7 +46,18 @@ def get_parser(parents = [], args = None):
         default="click",
         choices=["click", "diversity"],
     )
-
+    parser.add_argument(
+        "--user-priors",
+        type=str,
+        default=None, 
+        help="Path to user priors."
+    )
+    parser.add_argument(
+        "--num-topics",
+        type=int,
+        default=10,
+        help="Number of topics in the dataset.",
+    )
     if args is not None:
         args, _ = parser.parse_known_args(args)
     else:
@@ -89,8 +100,9 @@ def main(parents = []):
             monitor_gym=False,
             save_code=True,
         )
-    print("### Training agent ###")
+
     if args.train:
+        print("### Training agent ###")
         if args.agent == "sac":
             sac.train(args, decoder = decoder)
         if args.agent == "slateQ":
@@ -100,6 +112,7 @@ def main(parents = []):
         if args.agent == "hac":
             hac.train(args)
     if args.test:
+        print("### Testing agent ###")
         if args.agent == "sac":
             sac.test(args, decoder = decoder)
         if args.agent == "slateQ":

@@ -15,6 +15,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 
+import datetime
+import re
+
 from pathlib import Path
 
 from .buffer import ReplayBuffer, POMDPDictReplayBuffer
@@ -46,7 +49,7 @@ def get_parser(parents = []):
     parser.add_argument(
         "--total-timesteps",
         type=int,
-        default=10000,
+        default=500000,
         help="total timesteps of the experiments",
     )
     parser.add_argument(
@@ -239,10 +242,10 @@ def make_env(
     args,
     decoder,
     slate_size,
-    reward_type
+    reward_type,
 ):
     def thunk():
-        env = gym.make(env_id, morl = args.morl, slate_size = args.slate_size, reward_type = reward_type)
+        env = gym.make(env_id, morl = args.morl, slate_size = args.slate_size, reward_type = reward_type, env_embedds=args.env_embedds, num_topics = args.num_topics, user_priors = args.user_priors)
         env = gym.wrappers.RecordEpisodeStatistics(env)
         if ranker == "topk":
             if args.item_embeddings == "ideal":
@@ -269,15 +272,15 @@ class SoftQNetwork(nn.Module):
         super().__init__()
 
         if state_dim is None:
-            if type(env.single_observation_space) == gym.spaces.Dict:
+            if type(env.unwrapped.single_observation_space) == gym.spaces.Dict:
                 state_dim = 0 
-                for key in env.single_observation_space.spaces.keys():
-                    state_dim += np.array(env.single_observation_space.spaces[key].shape).prod()
+                for key in env.unwrapped.single_observation_space.spaces.keys():
+                    state_dim += np.array(env.unwrapped.single_observation_space.spaces[key].shape).prod()
             else:   
-                state_dim = np.array(env.single_observation_space.shape).prod()
+                state_dim = np.array(env.unwrapped.single_observation_space.shape).prod()
         self.model = nn.Sequential(
             nn.Linear(
-                state_dim + np.prod(env.single_action_space.shape),
+                state_dim + np.prod(env.unwrapped.single_action_space.shape),
                 hidden_size
             ),
             nn.LayerNorm(hidden_size),
@@ -389,7 +392,7 @@ def train(args, decoder = None):
                 args,
                 decoder,
                 args.slate_size,
-                reward_type=args.reward_type
+                reward_type=args.reward_type,
             )
         ]
     )
@@ -403,7 +406,7 @@ def train(args, decoder = None):
                 args,
                 decoder,
                 args.slate_size,
-                reward_type=args.reward_type
+                reward_type=args.reward_type,
             )
         ]
     )
@@ -413,16 +416,14 @@ def train(args, decoder = None):
 
 
     # CSV logger
-    import datetime
     start = datetime.datetime.now()
     csv_filename = f"sac_-seed{str(args.seed)}"
 
-    import re
     # Using regex to find the numbers after 'numitem' and 'slatesize'
     numitem_match = re.search(r'numitem(\d+)', args.decoder_name)
     numitem_value = numitem_match.group(1) if numitem_match else None
 
-    csv_filename2 = f"sac-{args.ranker}_slatesize{args.slate_size}_num_items{numitem_value}_seed{str(args.seed)}-{datetime.datetime.now()}"
+    csv_filename2 = f"sac-{args.ranker}_slatesize{args.slate_size}_num_items{numitem_value}_seed{str(args.seed)}_train_{datetime.datetime.now()}"
     # remove special characters
     csv_filename = re.sub(r"[^a-zA-Z0-9]+", '-', csv_filename)+".log"
     csv_filename2 = re.sub(r"[^a-zA-Z0-9]+", '-', csv_filename2)+".log"
@@ -618,15 +619,15 @@ def train(args, decoder = None):
                 Path(os.path.join("data", "sac_models")).mkdir(parents=True, exist_ok=True)
                 torch.save(
                     actor.state_dict(),
-                    os.path.join("data", "sac_models", f"actor_best_{args.ranker}_slatesize{args.slate_size}_numitem{args.num_items}_{args.seed}.pt"),                    
+                    os.path.join("data", "sac_models", f"actor_best_{args.ranker}_slatesize{args.slate_size}_numitem{args.num_items}_{args.seed}_steps{args.total_timesteps}.pt"),                    
                 )
                 torch.save(
                     qf1.state_dict(),
-                    os.path.join("data", "sac_models", f"qf1_best_{args.ranker}_slatesize{args.slate_size}_numitem{args.num_items}_{args.seed}.pt"),
+                    os.path.join("data", "sac_models", f"qf1_best_{args.ranker}_slatesize{args.slate_size}_numitem{args.num_items}_{args.seed}_steps{args.total_timesteps}.pt"),
                 )
                 torch.save(
                     qf1_target.state_dict(),
-                    os.path.join("data", "sac_models", f"qf1_target_best_{args.ranker}_slatesize{args.slate_size}_numitem{args.num_items}_{args.seed}.pt"),
+                    os.path.join("data", "sac_models", f"qf1_target_best_{args.ranker}_slatesize{args.slate_size}_numitem{args.num_items}_{args.seed}_steps{args.total_timesteps}.pt"),
                 )
 
             with open(csv_path2, "a") as f:
@@ -778,7 +779,6 @@ def train(args, decoder = None):
                             torch.min(qf1_next_target, qf2_next_target)
                             - alpha * next_state_log_pi
                         )
-                        min_qf_next_target = min_qf_next_target.sum(2, keepdim=False)
                         next_q_value = data.rewards.flatten() + (
                             1 - data.dones.flatten()
                         ) * args.gamma * min_qf_next_target.view(-1)
@@ -907,6 +907,10 @@ def train(args, decoder = None):
                 #     csv_writer.writerow(["losses/alpha_loss", alpha_loss.item(), global_step])
 
     envs.close()
+    print(f"Elapsed time: {datetime.datetime.now() - start}")
+    with open(csv_path2, "a") as csv_file:
+        csv_file.write(f"\nElapsed time: {datetime.datetime.now() - start}\n")
+    print(f"Training done. Results saved in {csv_path2} ")
     if args.track == "tensorboard":
         writer.close()
     with open(csv_path, "a") as csv_file:
@@ -925,12 +929,12 @@ def test(args, decoder=None):
             args=args,
             decoder=decoder,
             slate_size=args.slate_size,
-            reward_type=args.reward_type
+            reward_type=args.reward_type,
         )
     ])
 
     # Load the saved model state
-    model_path = os.path.join("data", "sac_models", f"actor_best_{args.ranker}_slatesize{args.slate_size}_numitem{args.num_items}_{args.seed}.pt")
+    model_path = os.path.join("data", "sac_models", f"actor_best_{args.ranker}_slatesize{args.slate_size}_numitem{args.num_items}_{args.seed}_steps{args.total_timesteps}.pt")
     
     actor = Actor(test_envs, args.hidden_size, args.state_dim).to(args.device)
     actor.load_state_dict(torch.load(model_path))
@@ -953,7 +957,8 @@ def test(args, decoder=None):
     # Run test episodes
     ep = 0
     test_returns, test_lengths, test_diversity, test_catalog_coverage = [], [], [], []
-    max_episodes = 500  # Specify the number of test episodes to run
+    max_episodes = 10  # Specify the number of test episodes to run
+    start = datetime.datetime.now()
     while ep < max_episodes:
         with torch.no_grad():
             # Prepare the observation for the actor model
@@ -994,12 +999,27 @@ def test(args, decoder=None):
     # Print out test metrics
     print(f"Test Results over {max_episodes} Episodes:")
     print(f"Average Return: {np.mean(test_returns):.2f} ± {np.std(test_returns):.2f}")
-    print(f"Average Length: {np.mean(test_lengths):.2f} ± {np.std(test_lengths):.2f}")
     print(f"Average Diversity: {np.mean(test_diversity):.2f} ± {np.std(test_diversity):.2f}")
     print(f"Average Catalog Coverage: {np.mean(test_catalog_coverage):.2f} ± {np.std(test_catalog_coverage):.2f}")
+    end = datetime.datetime.now()
+    print(f"Elapsed time: {end - start}")
 
+    numitem_match = re.search(r'numitem(\d+)', args.decoder_name)
+    numitem_value = numitem_match.group(1) if numitem_match else None
+    csv_filename2 = f"sac-{args.ranker}_slatesize{args.slate_size}_num_items{numitem_value}_seed{str(args.seed)}_test_{datetime.datetime.now()}"
+    # remove special characters
+    csv_filename2 = re.sub(r"[^a-zA-Z0-9]+", '-', csv_filename2)+".log"
+    csv_path2 = "logs/" + csv_filename2
 
+    with open(csv_path2, "w") as f:
+        f.write(f"Running test set over best performing model on validation set (test seed = {args.seed+2})\n")
+        f.write(f"\nTest Results over {max_episodes} Episodes:\n")
+        f.write(f"Average Return: {np.mean(test_returns):.2f} ± {np.std(test_returns):.2f}\n")
+        f.write(f"Average Diversity: {np.mean(test_diversity):.2f} ± {np.std(test_diversity):.2f}\n")
+        f.write(f"Average Catalog Coverage: {np.mean(test_catalog_coverage):.2f} ± {np.std(test_catalog_coverage):.2f}\n")
+        f.write(f"Elapsed time: {end - start}\n")
 
+    print(f"Testing done. Results saved in {csv_path2}")
 if __name__ == "__main__":
     args = get_parser([get_generic_parser()]).parse_args()
 
