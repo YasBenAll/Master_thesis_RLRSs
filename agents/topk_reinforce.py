@@ -613,6 +613,7 @@ def test(args):
     # Close the environment
     test_envs.close()
 
+
     numitem_match = re.search(r'numitem(\d+)', args.decoder_name)
     numitem_value = numitem_match.group(1) if numitem_match else None
     csv_filename2 = f"reinforce_slatesize{args.slate_size}_num_items{numitem_value}_seed{str(args.seed)}_test_{datetime.datetime.now()}"
