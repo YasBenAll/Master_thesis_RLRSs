@@ -421,8 +421,8 @@ def train(args, decoder = None):
     # Using regex to find the numbers after 'numitem' and 'slatesize'
     numitem_match = re.search(r'numitem(\d+)', args.decoder_name)
     numitem_value = numitem_match.group(1) if numitem_match else None
-    csv_filename = f"misc-sac-{args.ranker}_slatesize{args.slate_size}_num_items{numitem_value}_seed{str(args.seed)}_train_{datetime.datetime.now()}"
-    csv_filename2 = f"sac-{args.ranker}_slatesize{args.slate_size}_num_items{numitem_value}_seed{str(args.seed)}_train_{datetime.datetime.now()}"
+    csv_filename = f"misc-sac-{args.ranker}_slatesize{args.slate_size}_num_items{numitem_value}_seed{str(args.seed)}_reward{args.reward_type}_train_{datetime.datetime.now()}"
+    csv_filename2 = f"sac-{args.ranker}_slatesize{args.slate_size}_num_items{numitem_value}_seed{str(args.seed)}_reward{args.reward_type}_train_{datetime.datetime.now()}"
     # remove special characters
     csv_filename = re.sub(r"[^a-zA-Z0-9]+", '-', csv_filename)+".log"
     csv_filename2 = re.sub(r"[^a-zA-Z0-9]+", '-', csv_filename2)+".log"
@@ -1022,7 +1022,8 @@ def test(args, decoder=None):
 
     numitem_match = re.search(r'numitem(\d+)', args.decoder_name)
     numitem_value = numitem_match.group(1) if numitem_match else None
-    csv_filename2 = f"sac-{args.ranker}_slatesize{args.slate_size}_num_items{numitem_value}_seed{str(args.seed)}_test_{datetime.datetime.now()}"
+    csv_filename = f"misc-sac-{args.ranker}_slatesize{args.slate_size}_num_items{numitem_value}_seed{str(args.seed)}_reward{args.reward_type}_test_{datetime.datetime.now()}"
+    csv_filename2 = f"sac-{args.ranker}_slatesize{args.slate_size}_num_items{numitem_value}_seed{str(args.seed)}_reward{args.reward_type}_test_{datetime.datetime.now()}"
     # remove special characters
     csv_filename2 = re.sub(r"[^a-zA-Z0-9]+", '-', csv_filename2)+".log"
     csv_path2 = "logs/" + csv_filename2

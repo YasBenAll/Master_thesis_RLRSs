@@ -387,7 +387,7 @@ class Sardine(gym.Env):
         info["catalog_coverage"] = catalog_coverage
 
         if self.morl:
-            return obs, np.array([self.engagement_reward(clicks), 1/2*self.diversity_reward(self.item_embedd[slate])]), terminated, False, info
+            return obs, np.array([self.engagement_reward(clicks), 7*self.diversity_reward(self.item_embedd[slate])]), terminated, False, info
         else:
             if self.reward_type == "diversity":
                 return obs, 7*self.diversity_reward(self.item_embedd[slate]), terminated, False, info
