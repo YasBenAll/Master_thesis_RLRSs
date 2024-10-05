@@ -75,6 +75,8 @@ class Sardine(gym.Env):
         self.rel_penalty = rel_penalty
         self.boredom_type = boredom_type
 
+        self.diversity = 0
+
         # user priors for generating embeddings
         if user_priors is not None:
             self.user_priors = np.load(os.path.join(DATA_REC_SIM_EMBEDDS, user_priors))['priors']
@@ -85,7 +87,7 @@ class Sardine(gym.Env):
         self._set_topic_for_items()
 
     def engagement_reward(self, clicks):
-        return sum(clicks)
+        return np.sum(clicks)
 
 
 
@@ -201,7 +203,6 @@ class Sardine(gym.Env):
             The initial ranker returns the most qualitative document in each topic (or the 10 first topics, or multiple top_docs per topic)
         '''
         super().reset(seed=seed)
-        
         self.recommended_items.clear()  # Reset for a new episode
         self.boredom_counter = 0
         self.t = 0  # Index of the trajectory-wide timestep
@@ -211,7 +212,7 @@ class Sardine(gym.Env):
         self.all_clicked_items = []
         self.bored = np.zeros(self.num_topics, dtype = bool)
         self.bored_timeout = self.boredom_moving_window * np.ones(self.num_topics, dtype = int)
-
+        self.reward = 0
         ## User embeddings
         self._reset_user_embedds()
 
@@ -327,7 +328,8 @@ class Sardine(gym.Env):
         '''
             Simulates user interaction.
         '''
-
+        # print("slate", slate)
+        # print("user embedd", self.user_embedd)
         ## Compute relevances
         scores = self.item_embedd @ self.cur_user_embedd
 
@@ -360,13 +362,13 @@ class Sardine(gym.Env):
         self.clicked_items.extend(slate[clicked_items])
         self.clicked_item_topics.extend(self.item_comp[slate[clicked_items]])
         self.clicked_step.extend(self.t * np.ones_like(clicked_items))
-        info["clicks"] = clicks
-
 
         ## Update the user state for the next step
         user_state = self._update_user_state(slate, clicked_items)
         info["user_state"] = user_state
+        self.diversity += self.diversity_reward(self.item_embedd[slate])
         info["diversity"] = self.diversity_reward(self.item_embedd[slate])
+        info["clicks"] = self.engagement_reward(clicks)
         ## Set terminated and return
         if self.t > self.H:
             terminated = True
@@ -378,9 +380,9 @@ class Sardine(gym.Env):
         obs = {'slate' : slate, 'clicks' : clicks, 'hist' : self.norm_recent_topics_hist}
 
         # Add items in the slate to the recommended items set
-        self.recommended_items.update(slate)
 
-        # Return the catalog coverage at the end
+        self.recommended_items.update(slate)
+        # Return the catalog coverage at the end\
         catalog_coverage = len(self.recommended_items) / self.num_items
         info["catalog_coverage"] = catalog_coverage
 
@@ -388,7 +390,7 @@ class Sardine(gym.Env):
             return obs, np.array([self.engagement_reward(clicks), 1/2*self.diversity_reward(self.item_embedd[slate])]), terminated, False, info
         else:
             if self.reward_type == "diversity":
-                return obs, self.diversity_reward(self.item_embedd[slate]), terminated, False, info
+                return obs, 7*self.diversity_reward(self.item_embedd[slate]), terminated, False, info
             else:
                 return obs, self.engagement_reward(clicks), terminated, False, info
     def _append_dict_values(self, old_dict, append_dict):

@@ -417,12 +417,11 @@ def train(args, decoder = None):
 
     # CSV logger
     start = datetime.datetime.now()
-    csv_filename = f"sac_-seed{str(args.seed)}"
 
     # Using regex to find the numbers after 'numitem' and 'slatesize'
     numitem_match = re.search(r'numitem(\d+)', args.decoder_name)
     numitem_value = numitem_match.group(1) if numitem_match else None
-
+    csv_filename = f"misc-sac-{args.ranker}_slatesize{args.slate_size}_num_items{numitem_value}_seed{str(args.seed)}_train_{datetime.datetime.now()}"
     csv_filename2 = f"sac-{args.ranker}_slatesize{args.slate_size}_num_items{numitem_value}_seed{str(args.seed)}_train_{datetime.datetime.now()}"
     # remove special characters
     csv_filename = re.sub(r"[^a-zA-Z0-9]+", '-', csv_filename)+".log"
@@ -538,6 +537,7 @@ def train(args, decoder = None):
 
         # TRY NOT TO MODIFY: execute the game and log data.
         next_obs, rewards, terminated, truncated, infos = envs.step(actions)
+
         if args.ranker == "gems":
             actions = actions.cpu().numpy()
         # Run validation episodes
@@ -548,7 +548,9 @@ def train(args, decoder = None):
                 actor_state_encoder.reset()
             ep = 0
             cum_boredom = 0
-            val_returns, val_lengths, val_boredom, val_diversity, val_catalog_coverage = [], [], [], [], []
+            cum_clicks = 0
+            cum_diversity = 0
+            val_returns, val_lengths, val_boredom, val_diversity, val_catalog_coverage, val_clicks = [], [], [], [], [], []
             val_errors, val_errors_norm = [], []
             val_slates, val_user_pref = [[] for _ in range(args.n_val_episodes)], [[] for _ in range(args.n_val_episodes)]
             val_protoactions = [[] for _ in range(args.n_val_episodes)]
@@ -582,6 +584,7 @@ def train(args, decoder = None):
                 val_protoactions[ep].append(val_action.squeeze().cpu().numpy())
                 ep_rewards.append(val_rewards[0])
                 val_obs = val_next_obs
+                # input(val_infos)
                 if "final_info" in val_infos:
                     if not args.observable:
                         actor_state_encoder.reset()
@@ -603,15 +606,20 @@ def train(args, decoder = None):
                         if info is None:
                             continue
                         val_returns.append(info["episode"]["r"])
-                        val_diversity.append(info["diversity"])
                         val_lengths.append(info["episode"]["l"])
                         val_catalog_coverage.append(info["catalog_coverage"])
                         val_boredom.append(cum_boredom)
+                        val_diversity.append(cum_diversity/info["episode"]["l"])
+                        val_clicks.append(cum_clicks)
                         cum_boredom = 0
+                        cum_clicks = 0
+                        cum_diversity = 0
                         ep += 1
                         ep_rewards, pred_q_values = [], []
                 else:
                     cum_boredom += (1.0 if np.sum(val_infos["bored"][0] == True) > 0 else 0.0)
+                    cum_clicks += val_infos["clicks"][0]
+                    cum_diversity += val_infos["diversity"][0]
 
             if np.mean(val_returns) > max_val_return:
                 max_val_return = np.mean(val_returns)
@@ -634,9 +642,15 @@ def train(args, decoder = None):
                 f.write(
                     f"\nStep {global_step}: clicks={np.mean(val_returns):.2f}, clicks_se={np.mean(val_returns)/np.sqrt(len(val_returns)):.2f}, diversity={np.mean(val_diversity):.2f}, diversity_se={np.mean(val_diversity)/np.sqrt(len(val_diversity))}, catalog coverage={np.mean(val_catalog_coverage):.2f}, catalog coverage_se={np.std(val_catalog_coverage)/np.sqrt(len(val_catalog_coverage)):.2f}"
                 )
-            print(
-                f"Step {global_step}: return={np.mean(val_returns):.2f} (+- {np.std(val_returns):.2f}), diversity={np.mean(val_diversity):.2f}, catalog coverage={np.mean(val_catalog_coverage):.2f}"
-            )
+            if args.reward_type != "diversity":
+                print(
+                    f"Step {global_step}: clicks={np.mean(val_returns):.2f}, clicks_se={np.mean(val_returns)/np.sqrt(len(val_returns)):.2f}, diversity={np.mean(val_diversity):.2f}, diversity_se={np.mean(val_diversity)/np.sqrt(len(val_diversity))}, catalog coverage={np.mean(val_catalog_coverage):.2f}, catalog coverage_se={np.std(val_catalog_coverage)/np.sqrt(len(val_catalog_coverage)):.2f}"
+                )
+            else:
+                print(
+                    f"Step {global_step}: clicks={np.mean(val_clicks):.2f}, clicks_se={np.mean(val_clicks)/np.sqrt(len(val_clicks)):.2f}, diversity={np.mean(val_diversity):.2f}, diversity_se={np.mean(val_diversity)/np.sqrt(len(val_diversity))}, catalog coverage={np.mean(val_catalog_coverage):.2f}, catalog coverage_se={np.std(val_catalog_coverage)/np.sqrt(len(val_catalog_coverage)):.2f}"
+                )
+
             if args.track == "wandb":
                 val_user_pref = np.array(val_user_pref)
                 val_slates = np.array(val_slates)
@@ -690,12 +704,14 @@ def train(args, decoder = None):
                 csv_file.write(f"val_charts/episodic_return,{np.mean(val_returns)},{global_step}\n")
                 # Write row diversity
                 csv_file.write(f"val_charts/diversity,{np.mean(val_diversity)},{global_step}\n")
-            # csv_writer.writerow(["val_charts/episodic_length", np.mean(val_lengths), global_step])
-            # csv_writer.writerow(["val_charts/q_error", np.mean(val_errors), global_step])
-            # csv_writer.writerow(["val_charts/q_error_norm", np.mean(val_errors_norm), global_step])
-            # csv_writer.writerow(["val_charts/SPS", int(np.sum(val_lengths) / (time.time() - val_start_time)), global_step])
-            # csv_writer.writerow(["val_charts/boredom", np.mean(val_boredom), global_step])
-            # csv_file.flush()
+                # Write row catalog coverage
+                csv_file.write(f"val_charts/catalog_coverage,{np.mean(val_catalog_coverage)},{global_step}\n")
+                csv_file.write(f"val_charts/episodic_length,{np.mean(val_lengths)}, {global_step}")
+                csv_file.write(f"val_charts/q_error, {np.mean(val_errors)}, {global_step}")
+                csv_file.write(f"val_charts/q_error_norm, {np.mean(val_errors_norm)}, {global_step}")
+                csv_file.write(f"val_charts/SPS, {int(np.sum(val_lengths) / time.time() - val_start_time)}, {global_step}")
+                csv_file.write(f"val_charts/boredom, {np.mean(val_boredom)}, {global_step}")
+                csv_file.flush()
 
         done = np.logical_or(terminated, truncated)
         if "final_info" in infos:
