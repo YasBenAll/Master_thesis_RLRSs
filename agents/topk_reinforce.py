@@ -25,6 +25,11 @@ from .state_encoders import GRUStateEncoder, TransformerStateEncoder
 from utils.parser import get_generic_parser
 from utils.file import hash_config, args2str
 
+import re
+import datetime
+
+from .plots import plot
+
 torch.set_float32_matmul_precision('high')
 
 DATE = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -235,7 +240,6 @@ def train(args, decoder = None):
             "|param|value|\n|-|-|\n%s"
             % ("\n".join([f"|{key}|{value}|" for key, value in vars(args).items()])),
         )
-
     # CSV logger
 
     start = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -246,7 +250,7 @@ def train(args, decoder = None):
     numitem_match = re.search(r'numitem(\d+)', args.decoder_name)
     numitem_value = numitem_match.group(1) if numitem_match else None
 
-    csv_filename2 = f"reinforce_slatesize{args.slate_size}_num_items{numitem_value}_seed{str(args.seed)}-{DATE}"
+    csv_filename2 = f"reinforce_slatesize{args.slate_size}_num_items{numitem_value}_train_seed{str(args.seed)}-{DATE}"
     # remove special characters
     csv_filename = re.sub(r"[^a-zA-Z0-9]+", '-', csv_filename)+".log"
     csv_filename2 = re.sub(r"[^a-zA-Z0-9]+", '-', csv_filename2)+".log"
@@ -347,7 +351,9 @@ def train(args, decoder = None):
                 actor_state_encoder.reset()
             ep = 0
             cum_boredom = 0
-            val_returns, val_lengths, val_boredom, val_diversity, val_catalog_coverage = [], [], [], [], []
+            cum_clicks = 0
+            cum_diversity = 0
+            val_returns, val_lengths, val_boredom, val_diversity, val_catalog_coverage, val_clicks = [], [], [], [], [], []
             val_slates, val_user_pref = [[] for _ in range(args.n_val_episodes)], [[] for _ in range(args.n_val_episodes)]
             ep_rewards = []
             while ep < args.n_val_episodes:
@@ -376,15 +382,20 @@ def train(args, decoder = None):
                         if info is None:
                             continue
                         val_returns.append(info["episode"]["r"])
-                        val_diversity.append(info["diversity"])
+                        val_boredom.append(cum_boredom)
+                        val_diversity.append(cum_diversity/info["episode"]["l"])
+                        val_clicks.append(cum_clicks)
+                        cum_boredom = 0
+                        cum_clicks = 0
+                        cum_diversity = 0
                         val_lengths.append(info["episode"]["l"])
                         val_catalog_coverage.append(info["catalog_coverage"])
-                        val_boredom.append(cum_boredom)
-                        cum_boredom = 0
                         ep += 1
                         ep_rewards = []
                 else:
                     cum_boredom += (1.0 if np.sum(val_infos["bored"][0] == True) > 0 else 0.0)
+                    cum_clicks += val_infos["clicks"]
+                    cum_diversity += val_infos["diversity"]
 
             if np.mean(val_returns) > max_val_return:
                 max_val_return = np.mean(val_returns)
@@ -399,9 +410,15 @@ def train(args, decoder = None):
                 f.write(
                     f"\nStep {global_step}: clicks={np.mean(val_returns):.2f}, clicks_se={np.mean(val_returns)/np.sqrt(len(val_returns)):.2f}, diversity={np.mean(val_diversity):.2f}, diversity_se={np.mean(val_diversity)/np.sqrt(len(val_diversity))}, catalog coverage={np.mean(val_catalog_coverage):.2f}, catalog coverage_se={np.std(val_catalog_coverage)/np.sqrt(len(val_catalog_coverage)):.2f}"
                 )
-            print(
-                f"Step {global_step}: return={np.mean(val_returns):.2f} (+- {np.std(val_returns):.2f}), diversity={np.mean(val_diversity):.2f}, catalog coverage={np.mean(val_catalog_coverage):.2f}"
-            )
+            if args.reward_type != "diversity":
+                print(
+                    f"Step {global_step}: clicks={np.mean(val_returns):.2f}, clicks_se={np.mean(val_returns)/np.sqrt(len(val_returns)):.2f}, diversity={np.mean(val_diversity):.2f}, diversity_se={np.mean(val_diversity)/np.sqrt(len(val_diversity))}, catalog coverage={np.mean(val_catalog_coverage):.2f}, catalog coverage_se={np.std(val_catalog_coverage)/np.sqrt(len(val_catalog_coverage)):.2f}"
+                )
+            else:
+                print(
+                    f"Step {global_step}: clicks={np.mean(val_clicks):.2f}, clicks_se={np.mean(val_clicks)/np.sqrt(len(val_clicks)):.2f}, diversity={np.mean(val_diversity):.2f}, diversity_se={np.mean(val_diversity)/np.sqrt(len(val_diversity))}, catalog coverage={np.mean(val_catalog_coverage):.2f}, catalog coverage_se={np.std(val_catalog_coverage)/np.sqrt(len(val_catalog_coverage)):.2f}"
+                )
+
             if args.track == "wandb":
                 val_user_pref = np.array(val_user_pref)
                 val_slates = np.array(val_slates)
@@ -531,8 +548,9 @@ def train(args, decoder = None):
         writer.close()
 
 def test(args):
-    test_envs = gym.vector.SyncVectorEnv([make_env(args.env_id, idx=0, observable=args.observable, args=args)])
 
+    test_envs = gym.vector.SyncVectorEnv([make_env(args.env_id, idx=0, observable=args.observable, args=args)])
+    relevances = []
     # Load the saved model state
     model_path = os.path.join("data", "topk_reinforce", f"actor_best_slatesize{args.slate_size}_numitem{args.num_items}_{args.seed}.pt")
     
@@ -545,7 +563,6 @@ def test(args):
 
     # Initialize the test environment
     test_obs, _ = test_envs.reset(seed=args.seed+2)
-
     if not args.observable:
         if args.state_encoder == "gru":
             StateEncoder = GRUStateEncoder
@@ -560,7 +577,8 @@ def test(args):
     ep = 0
     cum_boredom = 0
     test_returns, test_lengths, test_diversity, test_catalog_coverage = [], [], [], []
-    max_episodes = 500  # You can specify the number of test episodes to run
+    max_episodes = 10  # You can specify the number of test episodes to run
+    start = datetime.datetime.now()
     while ep < max_episodes:
         with torch.no_grad():
             if args.observable:
@@ -571,9 +589,14 @@ def test(args):
 
         # Take actions and get results
         next_obs, rewards, terminated, truncated, infos = test_envs.step(actions)
+        # add items in infos["relevances"] to relevances. info["relevances"] is a numpy array so you have to convert it to a list
+
+
+
         test_obs = next_obs
 
         if "final_info" in infos:
+            relevances.extend(list(infos["final_info"][0]["relevances"]))
             if not args.observable:
                 test_state_encoder.reset()
             for info in infos["final_info"]:
@@ -584,23 +607,34 @@ def test(args):
                 test_lengths.append(info["episode"]["l"])
                 test_catalog_coverage.append(info["catalog_coverage"])
                 ep += 1
+        else:
+            relevances.extend(list(infos["relevances"][0]))
 
     # Close the environment
     test_envs.close()
 
+    numitem_match = re.search(r'numitem(\d+)', args.decoder_name)
+    numitem_value = numitem_match.group(1) if numitem_match else None
+    csv_filename2 = f"reinforce_slatesize{args.slate_size}_num_items{numitem_value}_seed{str(args.seed)}_test_{datetime.datetime.now()}"
+    # remove special characters
+    csv_filename2 = re.sub(r"[^a-zA-Z0-9]+", '-', csv_filename2)+".log"
+    csv_path2 = "logs/" + csv_filename2
+
     # Print out test metrics
     print(f"Test Results over {max_episodes} Episodes:")
     print(f"Average Return: {np.mean(test_returns):.2f} ± {np.std(test_returns):.2f}")
-    print(f"Average Length: {np.mean(test_lengths):.2f} ± {np.std(test_lengths):.2f}")
     print(f"Average Diversity: {np.mean(test_diversity):.2f} ± {np.std(test_diversity):.2f}")
     print(f"Average Catalog Coverage: {np.mean(test_catalog_coverage):.2f} ± {np.std(test_catalog_coverage):.2f}")
+    end = datetime.datetime.now()
+    print(f"Elapsed time: {end - start}")
 
-    with open(os.path.join("logs",f"reinforce_test_slatesize{args.slate_size}_num_items{args.num_items}_seed{str(args.seed)}-{DATE}.txt"), "w") as f:
+    with open(csv_path2, "w") as f:
+        f.write(f"Running test set over best performing model on validation set (test seed = {args.seed+2})\n")
+        f.write(f"\nTest Results over {max_episodes} Episodes:\n")
         f.write(f"Average Return: {np.mean(test_returns):.2f} ± {np.std(test_returns):.2f}\n")
-        f.write(f"Average Length: {np.mean(test_lengths):.2f} ± {np.std(test_lengths):.2f}\n")
         f.write(f"Average Diversity: {np.mean(test_diversity):.2f} ± {np.std(test_diversity):.2f}\n")
         f.write(f"Average Catalog Coverage: {np.mean(test_catalog_coverage):.2f} ± {np.std(test_catalog_coverage):.2f}\n")
-
+        f.write(f"Elapsed time: {end - start}\n")
 if __name__ == "__main__":
     args = get_parser([get_generic_parser()]).parse_args()
 
