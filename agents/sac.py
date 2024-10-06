@@ -367,6 +367,7 @@ class Actor(nn.Module):
             return action
 
 def train(args, decoder = None):
+    print(f"Training {args.env_id} with {args.algorithm} on {args.device}")
     run_name = f"{args.env_id}__{args.run_name}__{args.seed}__{int(time.time())}"
     if args.track == "wandb":
         import wandb
