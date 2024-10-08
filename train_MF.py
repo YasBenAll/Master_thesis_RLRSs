@@ -5,11 +5,13 @@ import torch
 import pytorch_lightning as pl
 import random
 
+from distutils.util import strtobool
 from modules.argument_parser import MainParser
 from modules.item_embeddings import MFEmbeddings
 
 argparser = MainParser() # Program-wide parameters
 argparser = MFEmbeddings.add_model_specific_args(argparser)  # Agent-specific parameters
+argparser.add_argument("ml-100k", type=lambda x: bool(strtobool(x)),, default=False, help="Whether tot pretrain on ml-100k dataset.")
 args = argparser.parse_args()
 arg_dict = vars(args)
 

@@ -26,8 +26,6 @@ python -V
 betas=(2705 3751 4685 3688 6383)
 SEED=${betas[SLURM_ARRAY_TASK_ID]}
 
-echo "Beta (KL): $BETA"
-echo "Lambda (click): $LAMBDA"
 echo "Slate size: $SLATE_SIZE"
 echo "Num items: $NUM_ITEMS"
 # mkdir pretrain_gems
