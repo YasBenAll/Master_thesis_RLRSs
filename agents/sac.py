@@ -308,7 +308,8 @@ LOG_STD_MIN = -5
 class Actor(nn.Module):
     def __init__(self, env, hidden_size, state_dim):
         super().__init__()
-
+        self.hidden_size = hidden_size
+        self.state_dim = state_dim
         # determine shape of single observation space. Space looks like this: Dict('clicks': MultiBinary(10), 'hist': Box(0.0, 1.0, (10,), float32), 'slate': MultiDiscrete([1000 1000 1000 1000 1000 1000 1000 1000 1000 1000]))
         if type(env.single_observation_space) == gym.spaces.dict.Dict:
             state_dim = 0
@@ -323,7 +324,7 @@ class Actor(nn.Module):
         # action rescaling
         self.register_buffer(
             "action_scale",
-            torch.FloatTensor((env.action_space.high - env.action_space.low) / 2.0),
+            torch.FloatTensor((env.action_space.high - env.action_space.low) / 2.0), 
         )
         self.register_buffer(
             "action_bias",
@@ -346,7 +347,6 @@ class Actor(nn.Module):
         log_std = LOG_STD_MIN + 0.5 * (LOG_STD_MAX - LOG_STD_MIN) * (
             log_std + 1
         )  # From SpinUp / Denis Yarats
-
         return mean, log_std
 
     def get_action(self, x, return_prob = False):
@@ -757,7 +757,6 @@ def train(args, decoder = None):
             start_time = time.time()
         if global_step > args.learning_starts:
             data = rb.sample(args.batch_size)
-            
             for _ in range(args.n_updates):
                 with torch.no_grad():
                     if args.observable:
@@ -765,10 +764,12 @@ def train(args, decoder = None):
                     else:
                         actor_next_observations = actor_state_encoder(data.next_observations)
                         qf1_next_observations = qf1_state_encoder_target(data.next_observations)
+                    input(actor_next_observations.shape)
                     next_state_actions, next_state_log_pi = actor.get_action(
                         actor_next_observations, return_prob = True
                     )
                     if args.singleq:
+                        input(qf1_target)
                         qf_next_target = qf1_target(
                             qf1_next_observations,
                             next_state_actions,

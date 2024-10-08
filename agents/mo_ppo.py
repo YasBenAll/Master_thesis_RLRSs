@@ -187,10 +187,6 @@ class MOPPONet(nn.Module):
 
         Returns: A tuple of (action, logprob, entropy, value)
         """
-        # encode step
-        # input(f"obs {obs}")
-
-
         action_mean = self.actor_mean(obs)
         action_logstd = self.actor_logstd.expand_as(action_mean)
         action_std = th.exp(action_logstd)
@@ -243,6 +239,7 @@ class MOPPO(MOPolicy):
         returns: th.Tensor = th.Tensor([]),
         advantages: th.Tensor = th.Tensor([]),
         global_step: int = 0,
+        test: str = False
 
     ):
         """Multi-objective PPO.
@@ -273,6 +270,7 @@ class MOPPO(MOPolicy):
             rng: Random number generator
         """
         super().__init__(id, device)
+        self.test = test
         self.id = id
         self.envs = envs
         self.num_envs = envs.num_envs
@@ -324,16 +322,32 @@ class MOPPO(MOPolicy):
 
         # # Storage setup (the batch)
         # Storage setup (the batch)
-        self.batch = PPOReplayBuffer(
-            self.steps_per_iteration,
-            self.num_envs,
-            self.networks.obs_shape,
-            self.networks.action_shape,
-            self.networks.reward_dim,
-            self.device,
-        )
-        
+        if self.test == False:
+            self.batch = PPOReplayBuffer(
+                self.steps_per_iteration,
+                self.num_envs,
+                self.networks.obs_shape,
+                self.networks.action_shape,
+                self.networks.reward_dim,
+                self.device,
+            )
+        else:
+            self.batch = None
+            
 
+    def get_serializable_representation(self):
+        return {
+            'id': self.id,
+            'weights': self.np_weights.tolist(),  # Saving as list for better compatibility
+            'network_state_dict': self.networks.state_dict(),  # Save the state dict of the network
+            'learning_rate': self.learning_rate,
+            'gamma': self.gamma,
+            'clip_coef': self.clip_coef,
+            'ent_coef': self.ent_coef,
+            'vf_coef': self.vf_coef,
+            'global_step': self.global_step,
+            # Add any other parameters you might need to reconstruct the agent
+        }
 
     def __deepcopy__(self, memo):
         """Deepcopy method.
@@ -606,6 +620,7 @@ class MOPPO(MOPolicy):
             current_iteration: current iteration number
             max_iterations: maximum number of iterations
         """
+        print(max_iterations)
         next_obs, _ = self.envs.reset(seed=self.seed)
         state_encoder.reset()
         # # converted_obs = OrderedDict([

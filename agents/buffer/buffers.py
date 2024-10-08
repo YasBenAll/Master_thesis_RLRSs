@@ -157,6 +157,7 @@ class BaseBuffer(ABC):
         return reward
 
 
+
 class ReplayBuffer(BaseBuffer):
     """
     Replay buffer used in off-policy algorithms like SAC/TD3.
@@ -350,7 +351,6 @@ class ReplayBuffer(BaseBuffer):
             ),
         )
         return ReplayBufferSamples(*tuple(map(self.to_torch, data)))
-
 
 class RolloutBuffer(BaseBuffer):
     """

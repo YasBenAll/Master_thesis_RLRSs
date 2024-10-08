@@ -17,6 +17,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import wandb
+import torch
 
 from morl_baselines.common.buffer import ReplayBuffer
 from .morl.evaluation import log_episode_info
@@ -33,7 +34,10 @@ class MOSoftQNetwork(nn.Module):
         obs_shape,
         action_shape,
         reward_dim,
+        observable,
         net_arch=[256, 256],
+        hidden_size = 256,
+        state_dim = None
     ):
         """Initialize the soft Q-network."""
         super().__init__()
@@ -41,10 +45,10 @@ class MOSoftQNetwork(nn.Module):
         self.action_shape = action_shape
         self.reward_dim = reward_dim
         self.net_arch = net_arch
-
+        self.observable = observable
         # S, A -> ... -> |R| (multi-objective)
         self.critic = mlp(
-            input_dim=np.array(self.obs_shape).prod() + np.prod(self.action_shape),
+            input_dim=40,
             output_dim=self.reward_dim,
             net_arch=self.net_arch,
             activation_fn=nn.ReLU,
@@ -71,6 +75,9 @@ class MOSACActor(nn.Module):
         reward_dim: int,
         action_lower_bound,
         action_upper_bound,
+        observable,
+        hidden_size, 
+        state_dim,
         net_arch=[256, 256],
     ):
         """Initialize SAC actor."""
@@ -79,16 +86,23 @@ class MOSACActor(nn.Module):
         self.action_shape = action_shape
         self.reward_dim = reward_dim
         self.net_arch = net_arch
-
+        self.observable = observable
         # S -> ... -> |A| (mean)
         #          -> |A| (std)
-        self.fc1 = nn.Linear(np.array(self.obs_shape).prod(), 256)
-        self.fc2 = nn.Linear(256, 256)
-        self.fc_mean = nn.Linear(256, np.prod(self.action_shape))
-        self.fc_logstd = nn.Linear(256, np.prod(self.action_shape))
+        # determine shape of single observation space. Space looks like this: Dict('clicks': MultiBinary(10), 'hist': Box(0.0, 1.0, (10,), float32), 'slate': MultiDiscrete([1000 1000 1000 1000 1000 1000 1000 1000 1000 1000]))
+        if state_dim is None:
+            state_dim = np.array(self.obs_shape).prod()
+        self.state_dim = state_dim
+        self.hidden_size = hidden_size
+        self.fc1 = nn.Linear(state_dim, hidden_size)
+        self.fc2 = nn.Linear(hidden_size, hidden_size)
+        self.fc_mean = nn.Linear(256, 10)
+        self.fc_logstd = nn.Linear(256, 10)
         # action rescaling
-        self.register_buffer("action_scale", th.tensor((action_upper_bound - action_lower_bound) / 2.0, dtype=th.float32))
-        self.register_buffer("action_bias", th.tensor((action_upper_bound + action_lower_bound) / 2.0, dtype=th.float32))
+        self.register_buffer("action_scale", th.FloatTensor((action_upper_bound - action_lower_bound) / 2.0),
+        )
+        self.register_buffer("action_bias", th.FloatTensor((action_upper_bound + action_lower_bound) / 2.0),
+        )
 
     def forward(self, x):
         """Forward pass of the actor network."""
@@ -98,24 +112,30 @@ class MOSACActor(nn.Module):
         log_std = self.fc_logstd(x)
         log_std = th.tanh(log_std)
         log_std = LOG_STD_MIN + 0.5 * (LOG_STD_MAX - LOG_STD_MIN) * (log_std + 1)  # From SpinUp / Denis Yarats
-
         return mean, log_std
 
-    def get_action(self, x):
-        """Get action from the actor network."""
+    def get_action(self, x, return_prob = False):
+        if type(x) == np.ndarray:
+            x = th.from_numpy(x).float().to('cuda')
+        if x.shape != torch.Size([1, 30]) and x.shape != torch.Size([30]):
+            x = x.view(128, 30)
+        else:
+            x = x.view(1, 30)
         mean, log_std = self(x)
         std = log_std.exp()
-        normal = th.distributions.Normal(mean, std)
-        x_t = normal.rsample()  # for reparameterization trick (mean + std * N(0,1))
-        y_t = th.tanh(x_t)
+        eps = torch.randn_like(std)
+        x_t = mean + eps * std  # for reparameterization trick (mean + std * N(0,1))
+        y_t = torch.tanh(x_t)
         action = y_t * self.action_scale + self.action_bias
-        log_prob = normal.log_prob(x_t)
-        # Enforcing Action Bound
-        log_prob -= th.log(self.action_scale * (1 - y_t.pow(2)) + 1e-6)
-        log_prob = log_prob.sum(1, keepdim=True)
-        mean = th.tanh(mean) * self.action_scale + self.action_bias
-        return action, log_prob, mean
-
+        if return_prob:
+            log_prob = - log_std - .5 * torch.log(2 * torch.pi * torch.ones_like(log_std)) - .5 * eps.pow(2)
+            log_prob -= torch.log(self.action_scale * (1 - y_t.pow(2)) + 1e-6)
+            log_prob = log_prob.sum(1, keepdim=True)
+            # log_prob = log_prob.sum(1, keepdim=True)
+            # input(f"log_prob: {log_prob.shape}")
+            return action, log_prob
+        else:
+            return action
 
 class MOSAC(MOPolicy):
     """Multi-objective Soft Actor-Critic (SAC) algorithm.
@@ -150,6 +170,10 @@ class MOSAC(MOPolicy):
         action_space: gym.spaces.MultiBinary = None,
         observation_space: gym.spaces.Dict = None,
         reward_dim: int = 2,
+        observable: bool = False,
+        hidden_size: int = 256,
+        state_dim: int = None,
+        ranker: str = "topk"
     ):
         """Initialize the MOSAC algorithm.
 
@@ -196,8 +220,12 @@ class MOSAC(MOPolicy):
 
         # Scalarization
         self.weights = weights
-        self.np_weights = weights
-        self.weights_tensor = th.from_numpy(self.weights).float().to(self.device)
+        if type(weights) == th.Tensor:
+            self.weights_tensor = weights
+            self.np_weights = weights.cpu().numpy()
+        else:
+            self.weights_tensor = th.from_numpy(self.weights).float().to(self.device)
+            self.np_weights = weights
         self.batch_size = batch_size
         self.scalarization = scalarization
 
@@ -214,7 +242,8 @@ class MOSAC(MOPolicy):
         self.target_net_freq = target_net_freq
         self.total_timesteps = total_timesteps
 
-
+        self.observable = observable
+        self.ranker = ranker
         # Networks
         self.actor = MOSACActor(
             obs_shape=self.obs_shape,
@@ -223,19 +252,22 @@ class MOSAC(MOPolicy):
             action_lower_bound=self.env.action_space.low,
             action_upper_bound=self.env.action_space.high,
             net_arch=self.net_arch,
+            observable=self.observable,
+            hidden_size = hidden_size,
+            state_dim = state_dim
         ).to(self.device)
 
         self.qf1 = MOSoftQNetwork(
-            obs_shape=self.obs_shape, action_shape=self.action_shape, reward_dim=self.reward_dim, net_arch=self.net_arch
+            obs_shape=self.obs_shape, action_shape=self.action_shape, reward_dim=self.reward_dim, net_arch=self.net_arch, observable=self.observable, hidden_size = hidden_size, state_dim = state_dim 
         ).to(self.device)
         self.qf2 = MOSoftQNetwork(
-            obs_shape=self.obs_shape, action_shape=self.action_shape, reward_dim=self.reward_dim, net_arch=self.net_arch
+            obs_shape=self.obs_shape, action_shape=self.action_shape, reward_dim=self.reward_dim, net_arch=self.net_arch, observable=self.observable
         ).to(self.device)
         self.qf1_target = MOSoftQNetwork(
-            obs_shape=self.obs_shape, action_shape=self.action_shape, reward_dim=self.reward_dim, net_arch=self.net_arch
+            obs_shape=self.obs_shape, action_shape=self.action_shape, reward_dim=self.reward_dim, net_arch=self.net_arch,  observable=self.observable
         ).to(self.device)
         self.qf2_target = MOSoftQNetwork(
-            obs_shape=self.obs_shape, action_shape=self.action_shape, reward_dim=self.reward_dim, net_arch=self.net_arch
+            obs_shape=self.obs_shape, action_shape=self.action_shape, reward_dim=self.reward_dim, net_arch=self.net_arch, observable=self.observable
         ).to(self.device)
         self.qf1_target.requires_grad_(False)
         self.qf2_target.requires_grad_(False)
@@ -259,13 +291,25 @@ class MOSAC(MOPolicy):
         self.env.observation_space.dtype = np.float32
         self.buffer = ReplayBuffer(
             obs_shape=self.obs_shape,
-            action_dim=self.action_shape[0],
+            action_dim=self.env.envs[0].unwrapped.num_topics,
             rew_dim=self.reward_dim,
             max_size=self.buffer_size,
         )
 
         # Logging
         self.log = log
+
+
+    def get_serializable_representation(self):
+        return {
+            'id': self.id,
+            'weights': self.np_weights.tolist(),  # Saving as list for better compatibility
+            'actor_state_dict': self.actor.state_dict(),  # Save the state dict of the network
+            'learning_rate': self.learning_rate,
+            'gamma': self.gamma,
+            'global_step': self.global_step,
+            # Add any other parameters you might need to reconstruct the agent
+        }
 
     def get_config(self) -> dict:
         """Returns the configuration of the policy."""
@@ -315,6 +359,7 @@ class MOSAC(MOPolicy):
             parent_rng=self.parent_rng,
             action_space=self.action_space,
             observation_shape=self.observation_shape,
+            observable=self.observable
         )
 
         # Copying networks
@@ -350,6 +395,13 @@ class MOSAC(MOPolicy):
         self.weights = weights
         self.weights_tensor = th.from_numpy(self.weights).float().to(self.device)
 
+    def change_weights(self, new_weights: np.ndarray):
+        """Change the weights of the scalarization function.
+
+        Args:
+            new_weights: New weights to apply.
+        """
+        self.weights = th.from_numpy(deepcopy(new_weights)).to(self.device)
 
     # def eval(self, obs: np.ndarray, w: Optional[np.ndarray] = None) -> Union[int, np.ndarray]:
     #     """Returns the best action to perform for the given obs.
@@ -388,8 +440,12 @@ class MOSAC(MOPolicy):
 
     
         with th.no_grad():
-            action, _, _= self.actor.get_action(obs)
-        return action[0].detach()
+            if self.observable:
+                obs = torch.Tensor(obs)
+            action = self.actor.get_action(obs)
+
+        action = action.cpu().numpy()
+        return action
 
 
     @override
@@ -397,15 +453,14 @@ class MOSAC(MOPolicy):
         (mb_obs, mb_act, mb_rewards, mb_next_obs, mb_dones) = self.buffer.sample(
             self.batch_size, to_tensor=True, device=self.device
         )
-
         with th.no_grad():
-            next_state_actions, next_state_log_pi, _ = self.actor.get_action(mb_next_obs)
+            next_state_actions, next_state_log_pi = self.actor.get_action(mb_next_obs, return_prob = True)
             # (!) Q values are scalarized before being compared (min of ensemble networks)
-            qf1_next_target = self.scalarization(self.qf1_target(mb_next_obs, next_state_actions), self.weights_tensor)
-            qf2_next_target = self.scalarization(self.qf2_target(mb_next_obs, next_state_actions), self.weights_tensor)
-            min_qf_next_target = th.min(qf1_next_target, qf2_next_target) - (self.alpha_tensor * next_state_log_pi).flatten()
+            qf_next_target = self.scalarization(self.qf1_target(mb_next_obs, next_state_actions), self.weights_tensor)
+            # qf2_next_target = self.scalarization(self.qf2_target(mb_next_obs, next_state_actions), self.weights_tensor)
+            # min_qf_next_target = th.min(qf1_next_target, qf2_next_target) - (self.alpha_tensor * next_state_log_pi).flatten()
             scalarized_rewards = self.scalarization(mb_rewards, self.weights_tensor)
-            next_q_value = scalarized_rewards.flatten() + (1 - mb_dones.flatten()) * self.gamma * min_qf_next_target
+            next_q_value = scalarized_rewards.flatten() + (1 - mb_dones.flatten()) * self.gamma * qf_next_target
 
         qf1_a_values = self.scalarization(self.qf1(mb_obs, mb_act), self.weights_tensor).flatten()
         qf2_a_values = self.scalarization(self.qf2(mb_obs, mb_act), self.weights_tensor).flatten()
@@ -419,7 +474,7 @@ class MOSAC(MOPolicy):
 
         if self.global_step % self.policy_freq == 0:  # TD 3 Delayed update support
             for _ in range(self.policy_freq):  # compensate for the delay by doing 'actor_update_interval' instead of 1
-                pi, log_pi, _ = self.actor.get_action(mb_obs)
+                pi, log_pi= self.actor.get_action(mb_obs, return_prob=True)
                 # (!) Q values are scalarized before being compared (min of ensemble networks)
                 qf1_pi = self.scalarization(self.qf1(mb_obs, pi), self.weights_tensor)
                 qf2_pi = self.scalarization(self.qf2(mb_obs, pi), self.weights_tensor)
@@ -432,7 +487,7 @@ class MOSAC(MOPolicy):
 
                 if self.autotune:
                     with th.no_grad():
-                        _, log_pi, _ = self.actor.get_action(mb_obs)
+                        _, log_pi = self.actor.get_action(mb_obs, return_prob=True)
                     alpha_loss = (-self.log_alpha * (log_pi + self.target_entropy)).mean()
 
                     self.a_optimizer.zero_grad(set_to_none=True)
@@ -465,7 +520,7 @@ class MOSAC(MOPolicy):
             wandb.log(to_log)
 
     # def train(self, total_timesteps: int, eval_env: Optional[gym.Env] = None, start_time=None, state_encoder: th.nn.Module = None):
-    def train(self, start_time, current_iteration: int, max_iterations: int, state_encoder: th.nn.Module = None, num_envs: int = 1):
+    def train(self, start_time, current_iteration: int, max_iterations: int, state_encoder: th.nn.Module = None, num_envs: int = 1, total_timesteps: int = 10):
         """Train the agent.
 
         Args:
@@ -475,45 +530,55 @@ class MOSAC(MOPolicy):
         """
         if start_time is None:
             start_time = time.time()
-
         # TRY NOT TO MODIFY: start the game
         obs, _ = self.env.reset()
-        obs = state_encoder.step(obs)
-        obs = obs.squeeze() 
-        obs = obs.unsqueeze(0).repeat(num_envs, 1)  # duplicate observation to fit the NN input
-        obs = obs.detach()
-        state_encoder.reset()
-        for step in range(self.total_timesteps):
+        if not self.observable:
+            obs = state_encoder.step(obs)
+            obs = obs.squeeze() 
+            obs = obs.unsqueeze(0).repeat(num_envs, 1)  # duplicate observation to fit the NN input
+            obs = obs.detach()
+            state_encoder.reset()
+        for step in range(total_timesteps):
             # ALGO LOGIC: put action logic here
             if self.global_step < self.learning_starts:
-                actions = th.from_numpy(self.env.action_space.sample())
+                actions = (self.env.action_space.sample(),)
+                if self.ranker == "gems":
+                    actions = torch.tensor(actions)                
             else:
-                th_obs = th.as_tensor(obs).float().to(self.device)
-                th_obs = th_obs.unsqueeze(0)
-                actions, _, _ = self.actor.get_action(th_obs)
-                actions = th.from_numpy(actions[0].detach().cpu().numpy())
+                if not self.observable:
+                    if type(obs) != th.Tensor:
+                        obs = state_encoder.step(obs)
+                        obs = obs.squeeze()
+                        obs = obs.unsqueeze(0).repeat(num_envs, 1)  # duplicate observation to fit the NN input
+                        obs = obs.detach()
+                    th_obs = th.as_tensor(obs).float().to(self.device)
+                    obs = th_obs.unsqueeze(0)
+                actions= (self.actor.get_action(obs),)
+                actions = th.from_numpy(actions[0].detach().cpu().numpy()).to(self.device)
                 # convert action to tensor
-                
-
-
-
+                if self.ranker != "gems":
+                    actions = actions.cpu().numpy()
             # execute the game and log data
             next_obs, rewards, terminated, truncated, infos = self.env.step(actions)
-            next_obs = state_encoder.step(next_obs)
-            next_obs = next_obs.squeeze() 
-            next_obs = next_obs.unsqueeze(0).repeat(num_envs, 1)  # duplicate observation to fit the NN input
-            next_obs = next_obs.detach()
 
+            if not self.observable:
+                next_obs = state_encoder.step(next_obs)
+                next_obs = next_obs.squeeze() 
+                next_obs = next_obs.unsqueeze(0).repeat(num_envs, 1)  # duplicate observation to fit the NN input
+                next_obs = next_obs.detach()
             # TRY NOT TO MODIFY: save data to reply buffer; handle `final_observation`
             real_next_obs = next_obs
             if "final_observation" in infos:
-                real_next_obs = infos["final_observation"]
-                real_next_obs = state_encoder.step(real_next_obs)
-                real_next_obs = real_next_obs.squeeze() 
-                real_next_obs = real_next_obs.unsqueeze(0).repeat(num_envs, 1)  # duplicate observation to fit the NN input
-                # real_next_obs = real_next_obs.detach()
-            self.buffer.add(obs=obs, next_obs=real_next_obs, action=actions, reward=rewards, done=terminated)
+                # state_encoder.reset()
+                pass          
+            from collections import OrderedDict
+            if type(obs) == OrderedDict:
+                obs = state_encoder.step(obs)
+                obs = obs.squeeze()
+                obs = obs.unsqueeze(0).repeat(num_envs, 1)  # duplicate observation to fit the NN input
+                obs = obs.detach()
 
+            self.buffer.add(obs=obs, next_obs=real_next_obs, action=actions, reward=rewards, done=terminated)
             # TRY NOT TO MODIFY: CRUCIAL step easy to overlook
             obs = next_obs
             if terminated or truncated:

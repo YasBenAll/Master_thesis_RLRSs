@@ -12,10 +12,11 @@ from copy import deepcopy
 from distutils.util import strtobool
 from typing import List, Optional, Tuple, Union
 from typing_extensions import override
-
+import os
 import gymnasium as gym
 import mo_gymnasium as mo_gym
 import numpy as np
+import pickle
 import torch as th
 import wandb
 from scipy.optimize import least_squares
@@ -35,7 +36,7 @@ def get_parser(parents = []):
     parser.add_argument(
         "--env-id",
         type=str,
-        default="SlateTopK-BoredInf-v0-num_item100-slate_size3",
+        default="SlateTopK-Bored-v0",
         help="the id of the environment",
     )
     parser.add_argument(
@@ -230,8 +231,7 @@ def get_parser(parents = []):
         type=int,
         default=64,
         help="Feed-forward net dimension in the state encoder (only for Transformer).",
-    ),
-
+    )
     return parser
 
 class PerformancePredictor:
@@ -250,6 +250,7 @@ class PerformancePredictor:
         A_bound_min: float = 1.0,
         A_bound_max: float = 500.0,
         f_scale: float = 20.0,
+        test: str = False
     ):
         """Initialize the performance predictor.
 
@@ -503,11 +504,17 @@ def make_env(env_id, seed, observation_shape, run_name, gamma, observable, decod
     """
 
     def thunk():
-        env = GeMS(mo_gym.make(env_id, morl=True, slate_size=args.slate_size, env_embedds=args.env_embedds, num_items=args.num_items), 
-                    path = args.data_dir + "GeMS/decoder/" + args.exp_name + "/" + args.run_name + ".pt",
-                    device = args.device,
-                    decoder = decoder,
-                    )
+        if args.ranker == "gems":
+            env = GeMS(mo_gym.make(env_id, morl=True, slate_size=args.slate_size, env_embedds=args.env_embedds, num_items=args.num_items), 
+                        path = args.data_dir + "GeMS/decoder/" + args.exp_name + "/" + args.run_name + ".pt",
+                        device = args.device,
+                        decoder = decoder,
+                        )
+        elif args.ranker == "topk":
+            env = TopK(mo_gym.make(env_id, morl=True, slate_size=args.slate_size, env_embedds=args.env_embedds, num_items=args.num_items), 
+                        "ideal", 
+                        min_action = 0, 
+                        max_action = 1)
         env.unwrapped.reward_space = gym.spaces.Box(0, env.unwrapped.slate_size, (2,), np.float32)
         env.unwrapped.observation_space = gym.spaces.Dict({
             'slate': gym.spaces.MultiDiscrete([env.unwrapped.num_items for i in range(env.unwrapped.slate_size)]),
@@ -520,7 +527,8 @@ def make_env(env_id, seed, observation_shape, run_name, gamma, observable, decod
         # env = mo_gym.MORecordEpisodeStatistics(env, gamma=gamma)
         env.reset(seed=seed)
 
-
+        if observable:
+            env = IdealState(env)
         return env
 
     return thunk
@@ -583,8 +591,8 @@ class PGMORL(MOAgent):
         envs: gym.Env = None,	
         val_envs: gym.Env = None,
         buffer: ABC = None,
-        agent: str = 'MOPPO'
-
+        agent: str = 'moppo',
+        test: str = False
         
     ):
         """Initializes the PGMORL agent.
@@ -637,6 +645,7 @@ class PGMORL(MOAgent):
                     )
 
         self.extract_env_info(self.tmp_env)
+        self.test = test
         self.env_id = env_id
         self.num_envs = num_envs
         self.action_space = self.tmp_env.action_space
@@ -647,10 +656,13 @@ class PGMORL(MOAgent):
         # GeMS 
         self.decoder = decoder
         self.observable = observable
-        self.observation_shape = 16 # latent dimenstion of the GeMS model
         self.ranker = ranker
         self.args = args
         self.buffer = buffer
+        if self.ranker == 'gems':
+            self.observation_shape = 16 # latent dimenstion of the GeMS model
+        else:
+            self.observation_shape = 30
         # self.num_topics = num_topics
         # self.observation_space = gym.spaces.Dict({
         #     'slate': gym.spaces.MultiDiscrete([self.num_items for i in range(self.slate_size)]),
@@ -720,7 +732,7 @@ class PGMORL(MOAgent):
         if self.log:
             self.setup_wandb(project_name, experiment_name, wandb_entity, group)
         print(self.agent)
-        if self.agent == 'MOPPO':
+        if self.agent == 'moppo':
             self.networks = [
                 MOPPONet(
                     self.observation_shape,
@@ -734,7 +746,7 @@ class PGMORL(MOAgent):
         weights = generate_weights(self.delta_weight)
         print(f"Warmup phase - sampled weights: {weights}")
 
-        if self.agent == 'MOPPO':
+        if self.agent == 'moppo':
             self.agents = [
                 MOPPO(
                     i,
@@ -766,7 +778,7 @@ class PGMORL(MOAgent):
                 )
                 for i in range(self.pop_size)
             ]
-        elif self.agent == 'MOSAC':
+        elif self.agent == 'mosac':
             self.agents = [
                 MOSAC(
                     env=self.env,
@@ -784,15 +796,21 @@ class PGMORL(MOAgent):
                     observation_space = self.observation_space,
                     action_space = self.action_space,
                     reward_dim = self.reward_dim,
+                    observable=self.observable,
+                    hidden_size = args.hidden_size,
+                    state_dim = args.state_dim,
                 ) for i in range(self.pop_size)]
 
         StateEncoder = GRUStateEncoder
-        self.state_encoders = [
-                StateEncoder(self.env, args).to(args.device)
-                for _ in range(self.pop_size)
-        ]
+        if not args.observable:
+            self.state_encoders = [
+                    StateEncoder(self.env, args).to(args.device)
+                    for _ in range(self.pop_size)
+            ]
+        else:
+            self.state_encoders = None
 
-    @override
+    @override   
     def get_config(self) -> dict:
         return {
             "env_id": self.env_id,
@@ -825,9 +843,13 @@ class PGMORL(MOAgent):
             "gae_lambda": self.gae_lambda,
         }
 
-    def __train_all_agents(self, iteration: int, max_iterations: int):
+    def __train_all_agents(self, iteration: int, max_iterations: int, steps_per_iteration: int = 5555):
         for i, agent in enumerate(self.agents):
-            agent.train(self.start_time, iteration, max_iterations, state_encoder=self.state_encoders[i])
+            if not self.observable:
+                state_encoder = self.state_encoders[i]
+            else:
+                state_encoder = None
+            agent.train(self.start_time, iteration, max_iterations, state_encoder=state_encoder, total_timesteps=self.steps_per_iteration)
 
     def __eval_all_agents(
         self,
@@ -841,14 +863,18 @@ class PGMORL(MOAgent):
     ):
         """Evaluates all agents and store their current performances on the buffer and pareto archive."""
         for i, agent in enumerate(self.agents):
-            _, _, _, discounted_reward = agent.policy_eval(eval_env, weights=agent.np_weights, log=self.log, state_encoder=self.state_encoders[i])
+            if not self.observable:
+                state_encoder = self.state_encoders[i]
+            else:
+                state_encoder = None
+            _, _, _, discounted_reward = agent.policy_eval(eval_env, weights=agent.np_weights, log=self.log, state_encoder=state_encoder, ranker=self.ranker, observable=self.observable)
             # Storing current results
             # divide second objective by 100
             self.population.add(agent, discounted_reward)
             self.archive.add(agent, discounted_reward)
             if add_to_prediction:
                 self.predictor.add(
-                    agent.weights.detach().cpu().numpy(),
+                    agent.weights,
                     evaluations_before_train[i],
                     discounted_reward,
                 )
@@ -978,14 +1004,13 @@ class PGMORL(MOAgent):
             
         )
         self.start_time = time.time()
-
         # Warmup
         print("total warmup iterations", self.warmup_iterations)
         for i in range(1, self.warmup_iterations + 1):
             print(f"Warmup iteration #{iteration}")
             if self.log:
                 wandb.log({"charts/warmup_iterations": i, "global_step": self.global_step})
-            self.__train_all_agents(iteration=iteration, max_iterations=max_iterations)
+            self.__train_all_agents(iteration=iteration, max_iterations=max_iterations, steps_per_iteration=self.steps_per_iteration)
             iteration += 1
         self.__eval_all_agents(
             eval_env=eval_env,
@@ -997,14 +1022,15 @@ class PGMORL(MOAgent):
 
         # Evolution
         max_iterations = max(max_iterations, self.warmup_iterations + self.evolutionary_iterations)
-        # input(f"max iterations {max_iterations}")
+        print(f"max iterations {max_iterations}")
+        print(f"iteration {iteration}")
         evolutionary_generation = 1
-
         ############ TEMPORARY
         # max_iterations = 2
         ############ TEMPORARY
 
         while iteration < max_iterations:
+            print(iteration)
             # Every evolutionary iterations, change the task - weight assignments
             self.__task_weight_selection(ref_point=ref_point)
             print(f"Evolutionary generation #{evolutionary_generation}")
@@ -1022,7 +1048,8 @@ class PGMORL(MOAgent):
                             "global_step": self.global_step,
                         },
                     )
-                self.__train_all_agents(iteration=iteration, max_iterations=max_iterations)
+                print(f"steps per iteration {self.steps_per_iteration}")
+                self.__train_all_agents(iteration=iteration, max_iterations=max_iterations, steps_per_iteration=self.steps_per_iteration)
                 iteration += 1
             self.__eval_all_agents(
                 eval_env=eval_env,
@@ -1038,6 +1065,81 @@ class PGMORL(MOAgent):
         if self.log:
             self.close_wandb()
 
+    def save_pareto_archive(self, filename: str, evaluation_filename: str):
+        archive_data = []
+        for individual in self.archive.individuals:
+            # Get the serializable data for each individual
+            archive_data.append(individual.get_serializable_representation())
+        
+        with open(os.path.join("data","morl",filename), 'wb') as f:
+            pickle.dump(archive_data, f)
+
+        with open(os.path.join("data","morl",evaluation_filename), 'wb') as f:
+            pickle.dump(self.archive.evaluations, f)
+        print(f"Pareto archive saved to {os.path.join('data','morl',filename)}")
+        print(f"Pareto archive evaluations saved to {os.path.join('data','morl',evaluation_filename)}")
+
+    def load_pareto_archive(self, filename: str, evaluation_filename: str):
+        with open(os.path.join("data", "morl",filename), 'rb') as f:
+            archive_data = pickle.load(f)
+
+        individuals = []
+        for data in archive_data:
+            # Create new instances of the network and agent
+            if self.agent == "moppo":
+                networks = MOPPONet(
+                    obs_shape=(data['network_state_dict']['actor_mean.0.weight'].shape[1],),
+                    action_shape=self.action_space.shape,
+                    reward_dim=len(data['weights']),
+                    net_arch=[64, 64]  # Should match whatever was used during initialization
+                )
+                networks.load_state_dict(data['network_state_dict'])
+                
+                # Create the MOPPO agent with restored parameters
+                individual = MOPPO(
+                    device="cuda",
+                    id=data['id'],
+                    networks=networks,
+                    weights=np.array(data['weights']),
+                    envs=self.env,  # Reuse the existing environment or create new ones
+                    log=self.log,
+                    steps_per_iteration=self.steps_per_iteration,
+                    learning_rate=data['learning_rate'],
+                    gamma=data['gamma'],
+                    clip_coef=data['clip_coef'],
+                    ent_coef=data['ent_coef'],
+                    vf_coef=data['vf_coef'],
+                    global_step=data['global_step'],
+                    test = True
+                    # You may need to pass other arguments if they were used during initialization
+                )
+            elif self.agent == "mosac":
+                individual = MOSAC(
+                        env=self.env,
+                        weights=np.array(data["weights"]),
+                        log=self.log,
+                        gamma=self.gamma,
+                        device=self.device,
+                        seed=self.seed,
+                        total_timesteps=self.steps_per_iteration,
+                        policy_lr=self.learning_rate,
+                        q_lr=self.learning_rate,
+                        id = data['id'],
+                        parent_rng = self.np_random,
+                        observation_shape=self.observation_shape,
+                        observation_space = self.observation_space,
+                        action_space = self.action_space,
+                        reward_dim = self.reward_dim,
+                        observable=self.observable,
+                        hidden_size = self.args.hidden_size,
+                        state_dim = self.args.state_dim,
+                    )
+            individuals.append(individual)
+
+        # Replace the archive individuals with the loaded individuals
+        self.archive.individuals = individuals
+        with open(os.path.join("data", "morl", evaluation_filename), 'rb') as f:
+            self.archive.evaluations = pickle.load(f)
 
 def train(args, decoder = None):
     # Model

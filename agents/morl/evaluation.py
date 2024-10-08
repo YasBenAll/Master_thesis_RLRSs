@@ -31,7 +31,10 @@ def eval_mo(
     render: bool = False,
     state_encoder: th.nn.Module = None, 
     num_envs: int = 1,
-    foo: bool = False
+    foo: bool = False,
+    seed: int = 1000,
+    ranker: str = "gems",
+    observable: bool = False,
 ) -> Tuple[float, float, np.ndarray, np.ndarray]:
     """Evaluates one episode of the agent in the environment.
 
@@ -45,22 +48,19 @@ def eval_mo(
     Returns:
         (float, float, np.ndarray, np.ndarray): Scalarized return, scalarized discounted return, vectorized return, vectorized discounted return
     """
-    # envs = gym.vector.SyncVectorEnv(
-    #     [env], )
-    obs, _ = env.reset()
-    state_encoder.reset()
-    # if foo:
-    if type (obs) == dict:
-        converted_obs = OrderedDict([
-            ('clicks', np.array([obs['clicks']], dtype=np.int8)),
-            ('hist', np.array([obs['hist']], dtype=np.float32)),  # Truncate or pad 'hist' to match the desired shape
-            ('slate', np.array([obs['slate']], dtype=np.int64))
-        ])
-    else:
-        converted_obs = obs
-    # if foo:
-    # input(f"obs: {converted_obs}, type: {type(converted_obs)}")
-    obs= state_encoder.step(converted_obs)
+    obs, _ = env.reset(seed=seed)
+    if not observable:
+        state_encoder.reset()
+        if type (obs) == dict:
+            converted_obs = OrderedDict([
+                ('clicks', np.array([obs['clicks']], dtype=np.int8)),
+                ('hist', np.array([obs['hist']], dtype=np.float32)),  # Truncate or pad 'hist' to match the desired shape
+                ('slate', np.array([obs['slate']], dtype=np.int64))
+            ])
+        else:
+            converted_obs = obs
+
+        obs= state_encoder.step(converted_obs)
     # input(obs)
     done = False
     vec_return, disc_vec_return = np.zeros_like(w), np.zeros_like(w)
@@ -77,7 +77,8 @@ def eval_mo(
             ])
         else :
             converted_obs = obs
-        obs= state_encoder.step(converted_obs)
+        if not observable:
+            obs= state_encoder.step(converted_obs)
         done = terminated or truncated
         vec_return += r
         disc_vec_return += r
@@ -146,7 +147,7 @@ def eval_mo_reward_conditioned(
 
 
 def policy_evaluation_mo(
-    agent, env, w: np.ndarray, scalarization=np.dot, rep: int = 5, state_encoder: th.nn.Module = None, num_envs: int = 1
+    agent, env, w: np.ndarray, scalarization=np.dot, rep: int = 5, state_encoder: th.nn.Module = None, num_envs: int = 1, ranker: str = "gems", observable: bool = False
 ) -> Tuple[float, float, np.ndarray, np.ndarray]:
     """Evaluates the value of a policy by running the policy for multiple episodes. Returns the average returns.
 
@@ -160,7 +161,7 @@ def policy_evaluation_mo(
     Returns:
         (float, float, np.ndarray, np.ndarray): Avg scalarized return, Avg scalarized discounted return, Avg vectorized return, Avg vectorized discounted return
     """
-    evals = [eval_mo(agent=agent, env=env, w=w, scalarization=scalarization, state_encoder=state_encoder, num_envs = num_envs) for _ in range(rep)]
+    evals = [eval_mo(agent=agent, env=env, w=w, scalarization=scalarization, state_encoder=state_encoder, num_envs = num_envs, ranker=ranker, observable=observable) for _ in range(rep)]
     # input(evals)
     avg_scalarized_return = np.mean([eval[0] for eval in evals])
     avg_scalarized_discounted_return = np.mean([eval[1] for eval in evals])
@@ -202,6 +203,7 @@ def log_all_multi_policy_metrics(
         n_sample_weights: number of weights to sample for EUM and MUL computation
         ref_front: reference front, if known
     """
+
     filtered_front = list(filter_pareto_dominated(current_front))
     # divide second column by 100 in filtered front
     filtered_front_arr = np.array(filtered_front)
@@ -211,6 +213,8 @@ def log_all_multi_policy_metrics(
     sp = sparsity(filtered_front)
     eum = expected_utility(filtered_front, weights_set=equally_spaced_weights(reward_dim, n_sample_weights))
     card = cardinality(filtered_front)
+
+    print(f"hypervolume: {hv}, sparsity: {sp}, eum: {eum}, cardinality: {card}")
 
     wandb.log(
         {

@@ -92,6 +92,8 @@ class MOPolicy(ABC):
         log: bool = False,
         state_encoder: th.nn.Module = None,
         num_envs: int = 1,
+        ranker: str = "gems",
+        observable: bool = False,
     ):
         """Runs a policy evaluation (typically over a few episodes) on eval_env and logs some metrics if asked.
 
@@ -110,7 +112,7 @@ class MOPolicy(ABC):
             scalarized_discounted_return,
             vec_return,
             discounted_vec_return,
-        ) = policy_evaluation_mo(self, eval_env, scalarization=scalarization, w=weights, rep=num_episodes, state_encoder=state_encoder, num_envs = num_envs)
+        ) = policy_evaluation_mo(self, eval_env, scalarization=scalarization, w=weights, rep=num_episodes, state_encoder=state_encoder, num_envs = num_envs, ranker=ranker, observable=observable)
 
         if log:
             self.__report(

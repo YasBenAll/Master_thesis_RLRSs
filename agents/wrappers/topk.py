@@ -37,7 +37,7 @@ class TopK(gym.ActionWrapper):
                                         shape=(self.embedd_dim,), dtype=np.float32)
 
     def action(self, action):
-        dot_product = self.embeddings @ action
+        dot_product = self.embeddings @ action.squeeze()
         ind = np.argpartition(dot_product, - self.slate_size)[- self.slate_size:]
         slate = ind[np.flip(np.argsort(dot_product[ind]))]
         self.latest_slate = slate
