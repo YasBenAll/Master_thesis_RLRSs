@@ -148,6 +148,18 @@ def get_parser(parents = []):
         default=256,
         help="Number of neurons in hidden layers of all models.",
     )
+    parser.add_argument(
+        "--pop-size",
+        type=int,
+        default=3,
+        help="Population size for evolutionary algorithms.",
+    )
+    parser.add_argument(
+        "--evolutionary-iterations",
+        type=int,
+        default=3,
+        help="Number of evolutionary iterations.",
+    )
     return parser
 
 
@@ -174,9 +186,9 @@ if __name__ == "__main__":
     algo = PGMORL(
         env_id=args.env_id,
         num_envs=args.num_envs,
-        pop_size=6,
+        pop_size=args.pop_size,
         warmup_iterations=args.warmup_iterations,
-        evolutionary_iterations=20,
+        evolutionary_iterations=args.evolutionary_iterations,
         num_weight_candidates=7,
         origin=np.array([0.0, 0.0]),
         args=args,
@@ -227,7 +239,7 @@ if __name__ == "__main__":
         # Execution of trained policies multiple times 
         for _ in range(5):
             for a in algo.archive.individuals:
-                scalarized, discounted_scalarized, reward, discounted_reward = eval_mo(
+                scalarized, discounted_scalarized, reward, discounted_reward, info = eval_mo(
                     agent=a, env=env(), render=False, w = a.np_weights, state_encoder=state_encoder, num_envs=1, foo=True, seed=args.seed+_, observable=args.observable
                 )
                 print(f"Agent #{a.id}")
@@ -236,6 +248,7 @@ if __name__ == "__main__":
                 print(f"Vectorial: {reward}")
                 print(f"Discounted vectorial: {discounted_reward}")
                 print(f"Weights:{a.np_weights}")
+                print(f"Info: {info['catalog_coverage']}")
 
     if args.test:
         # load ar
@@ -253,17 +266,19 @@ if __name__ == "__main__":
             state_encoder = None
 
         # Execution of trained policies multiple times 
-        for _ in range(5):
+        for _ in range(100):
             for a in algo.archive.individuals:
-                scalarized, discounted_scalarized, reward, discounted_reward = eval_mo(
+                scalarized, discounted_scalarized, reward, discounted_reward, info = eval_mo(
                     agent=a, env=env(), render=False, w = a.np_weights, state_encoder=state_encoder, num_envs=1, foo=True, seed=args.seed+_, observable=args.observable
                 )
                 print(f"Agent #{a.id}")
-                print(f"Scalarized: {scalarized}")
-                print(f"Discounted scalarized: {discounted_scalarized}")
-                print(f"Vectorial: {reward}")
-                print(f"Discounted vectorial: {discounted_reward}")
+                print(f"Info: {info['catalog_coverage']}")
+                print(f"Cumulative Clicks: {reward[0]}")
+                print(f"Average intra-list diversity: {reward[0]/100}")
                 print(f"Weights:{a.np_weights}")
+                print(f"Scalarized: {scalarized}")
+                print(f"Info: {info['catalog_coverage']}")
+
 
         import pickle
         import numpy as np

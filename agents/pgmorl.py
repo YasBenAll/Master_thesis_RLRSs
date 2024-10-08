@@ -30,6 +30,8 @@ from .mo_ppo import MOPPO, MOPPONet
 from .mosac_continuous_action import MOSACActor, MOSoftQNetwork, MOSAC
 from .buffer import RolloutBuffer
 from .state_encoders import GRUStateEncoder
+import torch as th
+
 def get_parser(parents = []):
     parser = argparse.ArgumentParser(parents = parents, add_help = False)
     # Training arguments
@@ -333,13 +335,15 @@ class PerformancePredictor:
         train_y = []
         w = []
         for i in range(len(training_weights)):
-            train_x.append(training_weights[i][current_dim])
+            if type(training_weights[i][current_dim]) == th.Tensor:
+                train_x.append(training_weights[i][current_dim].cpu().numpy())
+            else:
+                train_x.append(training_weights[i][current_dim])
             train_y.append(training_deltas[i][current_dim])
             diff = np.abs(training_next_perfs[i] - current_eval)
             dist = np.linalg.norm(diff / np.abs(current_eval))
             coef = np.exp(-((dist / sigma) ** 2) / 2.0)
             w.append(coef)
-
         train_x = np.array(train_x)
         train_y = np.array(train_y)
         w = np.array(w)
@@ -869,7 +873,6 @@ class PGMORL(MOAgent):
                 state_encoder = None
             _, _, _, discounted_reward = agent.policy_eval(eval_env, weights=agent.np_weights, log=self.log, state_encoder=state_encoder, ranker=self.ranker, observable=self.observable)
             # Storing current results
-            # divide second objective by 100
             self.population.add(agent, discounted_reward)
             self.archive.add(agent, discounted_reward)
             if add_to_prediction:
@@ -917,7 +920,6 @@ class PGMORL(MOAgent):
                     for weight in candidate_weights
                     if (tuple(last_candidate_eval), tuple(weight)) not in selected_tasks
                 ]
-
                 # Prediction of improvements of each pair
                 delta_predictions, predicted_evals = map(
                     list,
@@ -1028,12 +1030,10 @@ class PGMORL(MOAgent):
         ############ TEMPORARY
         # max_iterations = 2
         ############ TEMPORARY
-
+        print(f"number of agents {len(self.agents)}")
         while iteration < max_iterations:
-            print(iteration)
             # Every evolutionary iterations, change the task - weight assignments
             self.__task_weight_selection(ref_point=ref_point)
-            print(f"Evolutionary generation #{evolutionary_generation}")
             if self.log:
                 wandb.log(
                     {"charts/evolutionary_generation": evolutionary_generation, "global_step": self.global_step},

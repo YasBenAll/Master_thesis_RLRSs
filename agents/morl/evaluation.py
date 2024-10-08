@@ -96,6 +96,7 @@ def eval_mo(
         scalarized_discounted_return,
         vec_return,
         disc_vec_return,
+        info
     )
 
 
