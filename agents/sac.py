@@ -768,7 +768,6 @@ def train(args, decoder = None):
                         actor_next_observations, return_prob = True
                     )
                     if args.singleq:
-                        input(qf1_target)
                         qf_next_target = qf1_target(
                             qf1_next_observations,
                             next_state_actions,
@@ -974,7 +973,7 @@ def test(args, decoder=None):
     # Run test episodes
     ep = 0
     test_returns, test_lengths, test_diversity, test_catalog_coverage = [], [], [], []
-    max_episodes = 10  # Specify the number of test episodes to run
+    max_episodes = 500  # Specify the number of test episodes to run
     start = datetime.datetime.now()
     while ep < max_episodes:
         with torch.no_grad():
