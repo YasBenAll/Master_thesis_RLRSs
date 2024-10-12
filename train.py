@@ -58,12 +58,6 @@ def get_parser(parents = [], args = None):
         default=10,
         help="Number of topics in the dataset.",
     )
-    parser.add_argument(
-        "--reward-type",
-        type=str,
-        default="click",
-        choices=["click", "diversity"],
-    )
 
     if args is not None:
         args, _ = parser.parse_known_args(args)
