@@ -59,4 +59,4 @@ python /var/scratch/yal700/Master_thesis_RLRSs/train.py \
   --env-embedds item_embeddings_numitems${NUM_ITEMS}.npy \
   --train True \
   --test True \
-  --reward_type accuracy
+  --reward_type click
