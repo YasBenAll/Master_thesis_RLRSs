@@ -8,7 +8,7 @@ import pytorch_lightning as pl
 import torch
 import random
 import numpy as np
-from agents import sac, slateQ, topk_reinforce, hac
+from agents import sac, ddpg, topk_reinforce, hac
 from gems import gems
 from utils.parser import get_generic_parser
 from utils.file import hash_config
@@ -19,7 +19,7 @@ def get_parser(parents = [], args = None):
         "--agent",
         type=str,
         required = True,
-        choices=["sac", "ppo", "random", "slateQ", "reinforce", "hac"],
+        choices=["sac", "ppo", "random", "ddpg", "reinforce", "hac"],
         help="Type of agent",
     )
     parser.add_argument(
@@ -105,8 +105,8 @@ def main(parents = []):
         print("### Training agent ###")
         if args.agent == "sac":
             sac.train(args, decoder = decoder)
-        if args.agent == "slateQ":
-            slateQ.train(args)
+        if args.agent == "ddpg":
+            ddpg.train(args)
         if args.agent == "reinforce":
             topk_reinforce.train(args)
         if args.agent == "hac":
@@ -115,8 +115,8 @@ def main(parents = []):
         print("### Testing agent ###")
         if args.agent == "sac":
             sac.test(args, decoder = decoder)
-        if args.agent == "slateQ":
-            slateQ.test(args)
+        if args.agent == "ddpg":
+            ddpg.test(args)
         if args.agent == "reinforce":
             topk_reinforce.test(args)
         if args.agent == "hac":
