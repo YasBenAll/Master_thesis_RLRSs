@@ -8,7 +8,7 @@ import torch as th
 import wandb
 from pymoo.util.ref_dirs import get_reference_directions
 
-from morl_baselines.common.pareto import filter_pareto_dominated
+from .common.pareto import filter_pareto_dominated
 from morl_baselines.common.performance_indicators import (
     cardinality,
     expected_utility,
@@ -168,12 +168,14 @@ def policy_evaluation_mo(
     avg_scalarized_discounted_return = np.mean([eval[1] for eval in evals])
     avg_vec_return = np.mean([eval[2] for eval in evals], axis=0)
     avg_disc_vec_return = np.mean([eval[3] for eval in evals], axis=0)
+    avg_catalog_coverage = np.mean([eval[4]['catalog_coverage'] for eval in evals])
 
     return (
         avg_scalarized_return,
         avg_scalarized_discounted_return,
         avg_vec_return,
         avg_disc_vec_return,
+        avg_catalog_coverage
     )
 
 
@@ -185,6 +187,8 @@ def log_all_multi_policy_metrics(
     n_sample_weights: int,
     ref_front: Optional[List[np.ndarray]] = None,
     name: str = "eval",
+    iteration: int = 0,
+    filename: str = None,
 ):
     """Logs all metrics for multi-policy training.
 
@@ -223,10 +227,13 @@ def log_all_multi_policy_metrics(
             f"eval_{name}/sparsity": sp,
             f"eval_{name}/eum": eum,
             f"eval_{name}/cardinality": card,
-            f"global_step_{name}": global_step,
+            f"global_step_{f'iteration{iteration}'}": global_step,
         },
         commit=False,
     )
+    with open(os.path.join("logs", "morl", filename+"_train.log"), "a") as f:
+        f.write(f"\nstep:{global_step},hv:{hv},sp:{sp},eum:{eum},card:{card}")
+
     front = wandb.Table(
         columns=[f"objective_{i}" for i in range(1, reward_dim + 1)],
         data=[p.tolist() for p in filtered_front],

@@ -59,6 +59,7 @@ class MOPolicy(ABC):
         scalarized_discounted_return,
         vec_return,
         discounted_vec_return,
+        catalog_coverage
     ):
         """Writes the data to wandb summary."""
         if self.id is None:
@@ -74,14 +75,19 @@ class MOPolicy(ABC):
             }
         )
         for i in range(vec_return.shape[0]):
+            n = 1
             if i == 0:
                 # engagement
                 name = "cumulative clicks"
             elif i == 1:
                 name = "cumulative diversity"
+                n = 100
             wandb.log(
-                {f"eval{idstr}/{name}": vec_return[i]/100},
+                {f"eval{idstr}/{name}": vec_return[i]/n},
             )
+        wandb.log(
+            {f"eval{idstr}/catalog_coverage": catalog_coverage},
+        )
 
     def policy_eval(
         self,
@@ -112,6 +118,7 @@ class MOPolicy(ABC):
             scalarized_discounted_return,
             vec_return,
             discounted_vec_return,
+            catalog_coverage
         ) = policy_evaluation_mo(self, eval_env, scalarization=scalarization, w=weights, rep=num_episodes, state_encoder=state_encoder, num_envs = num_envs, ranker=ranker, observable=observable)
 
         if log:
@@ -120,9 +127,10 @@ class MOPolicy(ABC):
                 scalarized_discounted_return,
                 vec_return,
                 discounted_vec_return,
+                catalog_coverage
             )
 
-        return scalarized_return, scalarized_discounted_return, vec_return, discounted_vec_return
+        return scalarized_return, scalarized_discounted_return, vec_return, discounted_vec_return, catalog_coverage
 
     def policy_eval_esr(
         self,

@@ -20,9 +20,15 @@ from distutils.util import strtobool
 from gymnasium.wrappers import FlattenObservation
 from gymnasium.wrappers.record_video import RecordVideo
 from mo_gymnasium.utils import MORecordEpisodeStatistics
-from morl_baselines.common.evaluation import seed_everything
 from sardine.buffer.buffers import RolloutBuffer
 from agents.state_encoders import GRUStateEncoder
+
+import datetime
+
+import numpy as np
+import matplotlib.pyplot as plt
+
+
 
 def get_parser(parents = []):
     parser = argparse.ArgumentParser(parents = parents, add_help = False)
@@ -160,6 +166,12 @@ def get_parser(parents = []):
         default=3,
         help="Number of evolutionary iterations.",
     )
+    parser.add_argument(
+        "--random",
+        type=lambda x: bool(strtobool(x)),
+        default=False,
+        help = "Random weight selection",
+    )
     return parser
 
 
@@ -169,11 +181,44 @@ from agents.pgmorl import PGMORL, make_env
 
 
 
+def make_pareto_front_plot(evaluations, name):
+    plt.figure(figsize=(8, 6))
+    # Plot the Pareto Front
+    plt.scatter(evaluations[:, 0], evaluations[:, 1], color='b', label='Policies')
+    # add catalog coverage to the plot as label to the points
+    for i, txt in enumerate(evaluations):
+        plt.annotate(f'{txt[2]:.2f}', (txt[0], txt[1]))
+    
+
+    sorted_evaluations = evaluations[np.argsort(evaluations[:, 0])]
+    plt.plot(sorted_evaluations[:, 0], sorted_evaluations[:, 1], color='k', linestyle='--', linewidth=1, label='Pareto Front')
+
+    plt.title('Pareto Front Visualization',fontsize=20, )
+    plt.xlabel('Cumulative clicks',fontsize=20, )
+    plt.ylabel('Average Intra-list diversity',fontsize=20, )
+    plt.legend()
+
+    filename = f'pareto_front_{args.agent}_slatesize{args.slate_size}_numitems{args.num_items}_timesteps_{args.total_timesteps}_{name}.png'
+
+
+    # Step 4: Save the plot
+    if args.random:
+        filename = f'pareto_front_random_{args.agent}_slatesize{args.slate_size}_numitems{args.num_items}_timesteps_{args.total_timesteps}_{name}.png'
+
+
+
+    plt.savefig(os.path.join("plots","morl",filename))
+
+    print(f"plot saved in plots/morl/{filename}")
 
 if __name__ == "__main__":
+
     args = get_parser([get_generic_parser()]).parse_args()
     if args.observable:
         args.state_dim = 30
+
+    csv_filename = f"pgmorl-{args.ranker}_slatesize{args.slate_size}_num_items{args.slate_size}_seed{str(args.seed)}{datetime.datetime.now()}"
+    csv_filename = re.sub(r"[^a-zA-Z0-9]+", '-', csv_filename)
 
     decoder = torch.load(os.path.join(args.data_dir,"GeMS", "decoder", args.exp_name, args.decoder_name), map_location=torch.device('cpu')).to(args.device)
     pl.seed_everything(args.seed)
@@ -183,31 +228,35 @@ if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() and args.device == "cuda" else "cpu")
     if device.type != "cpu":
         torch.set_default_tensor_type("torch.cuda.FloatTensor")
-    algo = PGMORL(
-        env_id=args.env_id,
-        num_envs=args.num_envs,
-        pop_size=args.pop_size,
-        warmup_iterations=args.warmup_iterations,
-        evolutionary_iterations=args.evolutionary_iterations,
-        num_weight_candidates=7,
-        origin=np.array([0.0, 0.0]),
-        args=args,
-        decoder=decoder,
-        buffer=RolloutBuffer,
-        log=args.log,
-        gamma = 0.8,
-        device = device, 
-        agent = args.agent,
-        ranker = args.ranker,
-        observable=args.observable,
-        steps_per_iteration=args.steps_per_iteration,
-    )
 
 
     if args.train:
+        algo = PGMORL(
+            env_id=args.env_id,
+            num_envs=args.num_envs,
+            pop_size=args.pop_size,
+            warmup_iterations=args.warmup_iterations,
+            evolutionary_iterations=args.evolutionary_iterations,
+            num_weight_candidates=7,
+            origin=np.array([0.0, 0.0]),
+            args=args,
+            decoder=decoder,
+            buffer=RolloutBuffer,
+            log=args.log,
+            gamma = 0.8,
+            device = device, 
+            agent = args.agent,
+            ranker = args.ranker,
+            observable=args.observable,
+            steps_per_iteration=args.steps_per_iteration,
+            filename = csv_filename
+        )
 
-        print(f"Training PGMORL using {args.agent} on {args.env_id} with {args.total_timesteps} timesteps.")
-        eval_env = make_env(env_id=args.env_id, seed=42, run_name="Sardine_pgmorl", gamma=0.8, observable=args.observable, decoder=decoder, observation_shape = 16, args = args)()
+        print(f"Training PGMORL using {args.agent} on {args.env_id} with {args.total_timesteps} timesteps. random = {args.random}, observable = {args.observable}, ranker = {args.ranker}, decoder = {args.decoder_name}")
+        with open(os.path.join("logs", "morl", f"{csv_filename}_train.log"), "w") as f:
+            f.write(f"Training PGMORL using {args.agent} on {args.env_id} with {args.total_timesteps} timesteps. random = {args.random}, observable = {args.observable}, ranker = {args.ranker}, decoder = {args.decoder_name}")
+        
+        eval_env = make_env(env_id=args.env_id, seed=args.seed+1, run_name="Sardine_pgmorl", gamma=0.8, observable=args.observable, decoder=decoder, observation_shape = 16, args = args)()
         num_users_generated = 0
         import time
         start = time.time()
@@ -216,125 +265,105 @@ if __name__ == "__main__":
                 eval_env=eval_env,
                 ref_point=np.array([0.0, 0.0]),
                 known_pareto_front=None,
-                num_users_generated = num_users_generated
+                num_users_generated = num_users_generated,
+                csv_filename = csv_filename + "_train"
             )
         print("Training time: ", round((time.time() - start) / 60, 2), " minutes")
-
+        with open(os.path.join("logs", "morl", f"{csv_filename}_train.log"), "a") as f:
+            f.write(f"\nTraining time: {round((time.time() - start) / 60, 2)} minutes")
+        
         if args.save:
             archive_filename = re.sub(r"[^a-zA-Z0-9]+", '-', f"pareto_archive_{args.agent}_timesteps{int(args.total_timesteps)}_ranker{args.ranker}_env{args.env_id}.pkl")
             evaluations_filename = re.sub(r"[^a-zA-Z0-9]+", '-', f"pareto_archive_{args.agent}_timesteps{int(args.total_timesteps)}_ranker{args.ranker}_env{args.env_id}_evaluations.pkl")
 
+            if args.random:
+                archive_filename = re.sub(r"[^a-zA-Z0-9]+", '-', f"pareto_archive_random_{args.agent}_timesteps{int(args.total_timesteps)}_ranker{args.ranker}_env{args.env_id}.pkl")
+                evaluations_filename = re.sub(r"[^a-zA-Z0-9]+", '-', f"pareto_archive_random_{args.agent}_timesteps{int(args.total_timesteps)}_ranker{args.ranker}_env{args.env_id}_evaluations.pkl")
+
+
             algo.save_pareto_archive(archive_filename, evaluations_filename)
             print(f"Pareto archive saved to {archive_filename}")
 
+        result = np.array([np.append(algo.archive.catalog_coverage, algo.archive.evaluations) for i, arr in enumerate(algo.archive.evaluations)])
+        make_pareto_front_plot(result,"train")
 
-
-        env = make_env(env_id=args.env_id, seed=args.seed+2, run_name="Sardine_pgmorl", gamma=0.8, observable=args.observable, decoder=decoder, observation_shape = 16, args = args)
-        mo_sync_env = mo_gym.MOSyncVectorEnv([env])
-        if not args.observable:
-            StateEncoder = GRUStateEncoder
-            state_encoder = StateEncoder(mo_sync_env, args)
-        else:
-            state_encoder = None
-        # Execution of trained policies multiple times 
-        for _ in range(5):
-            for a in algo.archive.individuals:
-                scalarized, discounted_scalarized, reward, discounted_reward, info = eval_mo(
-                    agent=a, env=env(), render=False, w = a.np_weights, state_encoder=state_encoder, num_envs=1, foo=True, seed=args.seed+_, observable=args.observable
-                )
-                print(f"Agent #{a.id}")
-                print(f"Scalarized: {scalarized}")
-                print(f"Discounted scalarized: {discounted_scalarized}")
-                print(f"Vectorial: {reward}")
-                print(f"Discounted vectorial: {discounted_reward}")
-                print(f"Weights:{a.np_weights}")
-                print(f"Info: {info['catalog_coverage']}")
+        # env = make_env(env_id=args.env_id, seed=args.seed+2, run_name="Sardine_pgmorl", gamma=0.8, observable=args.observable, decoder=decoder, observation_shape = 16, args = args)
+        # mo_sync_env = mo_gym.MOSyncVectorEnv([env])
+        # if not args.observable:
+        #     StateEncoder = GRUStateEncoder
+        #     state_encoder = StateEncoder(mo_sync_env, args)
+        # else:
+        #     state_encoder = None
+        # # Execution of trained policies multiple times 
+        # for _ in range(5):
+        #     for a in algo.archive.individuals:
+        #         scalarized, discounted_scalarized, reward, discounted_reward, info = eval_mo(
+        #             agent=a, env=env(), render=False, w = a.np_weights, state_encoder=state_encoder, num_envs=1, foo=True, seed=args.seed+_, observable=args.observable
+        #         )
+        #         print(f"Agent #{a.id}")
+        #         print(f"Scalarized: {scalarized}")
+        #         print(f"Discounted scalarized: {discounted_scalarized}")
+        #         print(f"Vectorial: {reward}")
+        #         print(f"Discounted vectorial: {discounted_reward}")
+        #         print(f"Weights:{a.np_weights}")
+        #         print(f"Info: {info['catalog_coverage']}")
 
     if args.test:
+        algo = PGMORL(
+            env_id=args.env_id,
+            num_envs=args.num_envs,
+            pop_size=args.pop_size,
+            warmup_iterations=args.warmup_iterations,
+            evolutionary_iterations=args.evolutionary_iterations,
+            num_weight_candidates=7,
+            origin=np.array([0.0, 0.0]),
+            args=args,
+            decoder=decoder,
+            buffer=RolloutBuffer,
+            log=args.log,
+            gamma = 0.8,
+            device = device, 
+            agent = args.agent,
+            ranker = args.ranker,
+            observable=args.observable,
+            steps_per_iteration=args.steps_per_iteration,
+            filename = csv_filename
+        )
+
         # load ar
         archive_filename = re.sub(r"[^a-zA-Z0-9]+", '-', f"pareto_archive_{args.agent}_timesteps{int(args.total_timesteps)}_ranker{args.ranker}_env{args.env_id}.pkl")
         evaluations_filename = re.sub(r"[^a-zA-Z0-9]+", '-', f"pareto_archive_{args.agent}_timesteps{int(args.total_timesteps)}_ranker{args.ranker}_env{args.env_id}_evaluations.pkl")
 
-        algo.load_pareto_archive(archive_filename, evaluation_filename=evaluations_filename)
+        if args.random:
+            archive_filename = re.sub(r"[^a-zA-Z0-9]+", '-', f"pareto_archive_random_{args.agent}_timesteps{int(args.total_timesteps)}_ranker{args.ranker}_env{args.env_id}.pkl")
+            evaluations_filename = re.sub(r"[^a-zA-Z0-9]+", '-', f"pareto_archive_random_{args.agent}_timesteps{int(args.total_timesteps)}_ranker{args.ranker}_env{args.env_id}_evaluations.pkl")
 
-        env = make_env(env_id=args.env_id, seed=args.seed+2, run_name="Sardine_pgmorl", gamma=0.8, observable=args.observable, decoder=decoder, observation_shape = 16, args = args)
-        mo_sync_env = mo_gym.MOSyncVectorEnv([env])
+
+        algo.load_pareto_archive(archive_filename, evaluation_filename=evaluations_filename)
+        eval_env = make_env(env_id=args.env_id, seed=args.seed+1, run_name="Sardine_pgmorl", gamma=0.8, observable=args.observable, decoder=decoder, observation_shape = 16, args = args)()
+        test_env = make_env(env_id=args.env_id, seed=args.seed+2, run_name="Sardine_pgmorl", gamma=0.8, observable=args.observable, decoder=decoder, observation_shape = 16, args = args)
+       
         if not args.observable:
             StateEncoder = GRUStateEncoder
+            mo_sync_env = mo_gym.MOSyncVectorEnv([test_env])
             state_encoder = StateEncoder(mo_sync_env, args)
         else:
             state_encoder = None
 
         # Execution of trained policies multiple times 
-        for _ in range(100):
-            for a in algo.archive.individuals:
-                scalarized, discounted_scalarized, reward, discounted_reward, info = eval_mo(
-                    agent=a, env=env(), render=False, w = a.np_weights, state_encoder=state_encoder, num_envs=1, foo=True, seed=args.seed+_, observable=args.observable
-                )
-                print(f"Agent #{a.id}")
-                print(f"Info: {info['catalog_coverage']}")
-                print(f"Cumulative Clicks: {reward[0]}")
-                print(f"Average intra-list diversity: {reward[0]/100}")
-                print(f"Weights:{a.np_weights}")
-                print(f"Scalarized: {scalarized}")
-                print(f"Info: {info['catalog_coverage']}")
+        agent_dict = {}
+
+        algo._PGMORL__eval_all_agents(eval_env=test_env(),
+            evaluations_before_train=algo.archive.evaluations,
+            ref_point=np.array([0.0, 0.0]),
+            known_pareto_front=None,
+            name = 'test',
+            num_episodes=4
+            )
+        input(algo.archive.evaluations)
+        # print(evaluations)
+        result = np.array([np.append( algo.archive.evaluations,algo.archive.catalog_coverage) for i, arr in enumerate(algo.archive.evaluations)])
+
+        make_pareto_front_plot(result,"test")
 
 
-        import pickle
-        import numpy as np
-        import matplotlib.pyplot as plt
-        from sklearn.cluster import KMeans
-
-        # Step 1: Load the saved Pareto archive
-
-        # Load individuals and evaluations from the saved files
-        with open(os.path.join("data","morl",archive_filename), 'rb') as f:
-            archive_data = pickle.load(f)
-
-        with open(os.path.join("data","morl",evaluations_filename), 'rb') as f:
-            evaluations = pickle.load(f)
-
-        # Assuming evaluations is a list of objectives: accuracy and diversity
-        evaluations = np.array(evaluations)  # Convert evaluations to numpy array for easier manipulation
-
-        # Step 2: Apply k-means clustering to identify families of policies
-
-        try:
-            num_clusters = 3  # Assuming 3 families; you can adjust this number as needed
-            kmeans = KMeans(n_clusters=num_clusters, random_state=42)
-            labels = kmeans.fit_predict(evaluations)
-        except:
-            try:
-                num_clusters = 2
-                kmeans = KMeans(n_clusters=num_clusters, random_state=42)
-                labels = kmeans.fit_predict(evaluations)
-            except:
-                num_clusters = 1
-                kmeans = KMeans(n_clusters=num_clusters, random_state=42)
-                labels = kmeans.fit_predict(evaluations)
-
-        print(f"Clusters found: {np.unique(labels)}")
-        # Step 3: Plotting the Pareto front with objectives
-        plt.figure(figsize=(8, 6))
-
-        # Accuracy vs Diversity Plot
-        colors = ['r', 'b', 'g']  # Colors for each family, adjust as needed
-        for cluster in np.unique(labels):
-            cluster_evaluations = evaluations[labels == cluster]
-            plt.scatter(cluster_evaluations[:, 0], cluster_evaluations[:, 1]/100, color=colors[cluster], label=f'Family {cluster}')
-
-        # Optional: Connect points to create an approximate Pareto front
-        # Sort evaluations by accuracy and plot to approximate the Pareto front
-        sorted_evaluations = evaluations[np.argsort(evaluations[:, 0])]
-        plt.plot(sorted_evaluations[:, 0], sorted_evaluations[:, 1]/100, color='k', linestyle='--', linewidth=1, label='Pareto Front')
-
-        plt.title('Pareto Front Visualization',fontsize=20, )
-        plt.xlabel('Cumulative clicks',fontsize=20, )
-        plt.ylabel('Average Intra-list diversity',fontsize=20, )
-        plt.legend()
-
-        # Step 4: Save the plot
-        filename = f'pareto_front_{args.agent}_slatesize{args.slate_size}_numitems{args.num_items}_timesteps_{args.total_timesteps}.png'
-        plt.savefig(os.path.join("plots","morl",filename))
-
-        print(f"plot saved in plots/morl/{filename}")
