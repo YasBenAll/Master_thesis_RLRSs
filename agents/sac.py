@@ -764,7 +764,6 @@ def train(args, decoder = None):
                     else:
                         actor_next_observations = actor_state_encoder(data.next_observations)
                         qf1_next_observations = qf1_state_encoder_target(data.next_observations)
-                    input(actor_next_observations.shape)
                     next_state_actions, next_state_log_pi = actor.get_action(
                         actor_next_observations, return_prob = True
                     )
