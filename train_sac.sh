@@ -35,4 +35,28 @@ seeds=(2705 3751 4685 3688 6383)
 SEED=${seeds[SLURM_ARRAY_TASK_ID]}
 
 # Run the actual experiment
-python /var/scratch/yal700/Master_thesis_RLRSs/train.py --agent sac --total-timesteps $TIMESTEPS --val-interval $VAL_INTERVAL --buffer-size 100 --env-id ${ENV_ID} --morl False --ranker ${RANKER} --decoder-name SlateTopKBoredv0numitem${NUM_ITEMS}slatesize${SLATE_SIZE}_oracle_epsilon0.5_seed2023_n_users100000.ptkl_divergence1.0_lambda_click0.5_latentdim16 --device cuda --slate-size ${SLATE_SIZE} --singleq True --exp-name final --seed $SEED --num-items $NUM_ITEMS --autotune False --observable True --learning-starts 10000 --n-val-episodes 25 --tau 0.05 --batch-size 32 --env-embedds item_embeddings_numitems${NUM_ITEMS}.npy --train True --test True --reward-type click
+python /var/scratch/yal700/Master_thesis_RLRSs/train.py \
+  --agent sac \
+  --total-timesteps $TIMESTEPS \
+  --val-interval $VAL_INTERVAL \
+  --buffer-size 100 \
+  --env-id ${ENV_ID} \
+  --morl False \
+  --ranker ${RANKER} \
+  --decoder-name SlateTopKBoredv0numitem${NUM_ITEMS}slatesize${SLATE_SIZE}_oracle_epsilon0.5_seed2023_n_users100000.ptkl_divergence1.0_lambda_click0.5_latentdim16 \
+  --device cuda \
+  --slate-size ${SLATE_SIZE} \
+  --singleq True \
+  --exp-name final \
+  --seed $SEED \
+  --num-items $NUM_ITEMS \
+  --autotune False \
+  --observable True \
+  --learning-starts 10000 \
+  --n-val-episodes 25 \
+  --tau 0.05 \
+  --batch-size 32 \
+  --env-embedds item_embeddings_numitems${NUM_ITEMS}.npy \
+  --train True \
+  --test True \
+  --reward-type click
