@@ -20,7 +20,7 @@ def parse_args():
     parser.add_argument("--env-ids", type=str, nargs='+', default=["sardine/SingleItem-Static-v0"], help="List of environment IDs.")
     parser.add_argument("--methods", type=str, nargs='+', default=["random"], help="List of methods to evaluate.")
     parser.add_argument("--seeds", type=int, nargs='+', default=[2705, 3751, 4685, 3688, 6383], help="List of seeds for reproducibility.")
-    parser.add_argument("--n-val-episodes", type=int, default=8, help="Number of validation episodes.")
+    parser.add_argument("--n-val-episodes", type=int, default=500, help="Number of validation episodes.")
     parser.add_argument("--total-timesteps", type=int, default=10000, help="Total timesteps for the evaluation.")
     parser.add_argument("--val-interval", type=int, default=100, help="Interval between validation steps.")
     parser.add_argument("--log-dir", type=str, default="logs", help="Directory to save logs.")
@@ -49,10 +49,10 @@ def log_data(method, steps, returns, log_dir):
 def main():
     args = parse_args()
 
-    start = datetime.datetime.now()
 
 
-    slate_list = [3, 10, 20]
+
+    slate_list = [1,3, 10, 20]
     num_items = [100, 500, 1000]
 
     slate_dict = {}
@@ -80,7 +80,10 @@ def main():
                     methods_dict = {}
                     relevances = []
                     user_embedds = []
+
+                    runtime_list = []
                     for seed in args.seeds:
+                        start = datetime.datetime.now()
                         info_dict = {}
                         # CSV logger
                         csv_filename = f"run_{env_name}-{method}-0-{seed}"
@@ -167,16 +170,18 @@ def main():
                         info_dict["clicks"]=val_returns
                         info_dict["diversity"]=val_diversity
                         info_dict["catalog_coverage"]=val_catalog_coverage
+                        runtime_list.append((datetime.datetime.now() - start).total_seconds())
             
                     mean_click_list = np.mean(np.array(click_list), axis=1)
                     mean_diversity_list = np.mean(np.array(diversity_list), axis=1)
                     mean_catalog_coverage_list = np.mean(np.array(catalog_coverage_list), axis=1)  # Mean catalog coverage
-                    print(f"Mean click list: {np.mean(mean_click_list)}+-{np.std(mean_click_list)}")
-                    print(f"Mean diversity list: {np.mean(mean_diversity_list)}+-{np.std(mean_diversity_list)}")
-                    print(f"Mean catalog coverage: {np.mean(mean_catalog_coverage_list)}+-{np.std(mean_catalog_coverage_list)}")  # New print for catalog coverage
-
-
-
+                    print(f"Mean click list: {np.mean(mean_click_list):.2f}+-{np.std(mean_click_list):.2f}")
+                    print(f"Mean diversity list: {np.mean(mean_diversity_list):.2f}+-{np.std(mean_diversity_list):.2f}")
+                    print(f"Mean catalog coverage: {np.mean(mean_catalog_coverage_list):.2f}+-{np.std(mean_catalog_coverage_list):.2f}")  # New print for catalog coverage
+                    print(f"Elapsed time: {np.mean(runtime_list):.2f} +- {np.std(runtime_list):.2f} seconds")
+                    
+                    with open(os.path.join("results", "results.csv"), "a") as f:
+                        f.write(f"\n{method},{''},{env_id},{slate_size},{num_item},{''},{np.mean(mean_click_list):.2f},{np.std(mean_click_list):.2f},{np.mean(mean_diversity_list):.2f},{np.std(mean_diversity_list):.2f},{np.mean(mean_catalog_coverage_list):.2f},{np.std(mean_catalog_coverage_list):.2f},{np.mean(runtime_list):.2f},{np.std(runtime_list):.2f}")
 
 
 
@@ -240,7 +245,7 @@ def main():
                         print(f"Mean hypervolume: {np.mean(hypervolume_list)}+-{np.std(hypervolume_list)}")
 
                     env_dict[method] = methods_dict  
-                plot.plot_violin(scores_dict, env_id)
+                # plot.plot_violin(scores_dict, env_id)
             slate_dict[slate_size] = env_dict
 
         env.close()
