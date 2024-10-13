@@ -39,7 +39,7 @@ python /var/scratch/yal700/Master_thesis_RLRSs/train.py \
   --agent sac \
   --total-timesteps $TIMESTEPS \
   --val-interval $VAL_INTERVAL \
-  --buffer-size 100 \
+  --buffer-size 100000 \
   --env-id ${ENV_ID} \
   --morl False \
   --ranker ${RANKER} \
