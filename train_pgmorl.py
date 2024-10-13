@@ -273,12 +273,12 @@ if __name__ == "__main__":
             f.write(f"\nTraining time: {round((time.time() - start) / 60, 2)} minutes")
         
         if args.save:
-            archive_filename = re.sub(r"[^a-zA-Z0-9]+", '-', f"pareto_archive_{args.agent}_timesteps{int(args.total_timesteps)}_ranker{args.ranker}_env{args.env_id}.pkl")
-            evaluations_filename = re.sub(r"[^a-zA-Z0-9]+", '-', f"pareto_archive_{args.agent}_timesteps{int(args.total_timesteps)}_ranker{args.ranker}_env{args.env_id}_evaluations.pkl")
+            archive_filename = re.sub(r"[^a-zA-Z0-9]+", '-', f"pareto_archive_{args.agent}_slatesize_{args.slate_size}_numitems{args.num_items}_timesteps{int(args.total_timesteps)}_ranker{args.ranker}_env{args.env_id}.pkl")
+            evaluations_filename = re.sub(r"[^a-zA-Z0-9]+", '-', f"pareto_archive_{args.agent}_slatesize_{args.slate_size}_numitems{args.num_items}_timesteps{int(args.total_timesteps)}_ranker{args.ranker}_env{args.env_id}_evaluations.pkl")
 
             if args.random:
-                archive_filename = re.sub(r"[^a-zA-Z0-9]+", '-', f"pareto_archive_random_{args.agent}_timesteps{int(args.total_timesteps)}_ranker{args.ranker}_env{args.env_id}.pkl")
-                evaluations_filename = re.sub(r"[^a-zA-Z0-9]+", '-', f"pareto_archive_random_{args.agent}_timesteps{int(args.total_timesteps)}_ranker{args.ranker}_env{args.env_id}_evaluations.pkl")
+                archive_filename = re.sub(r"[^a-zA-Z0-9]+", '-', f"pareto_archive_random_{args.agent}_slatesize_{args.slate_size}_numitems{args.num_items}_timesteps{int(args.total_timesteps)}_ranker{args.ranker}_env{args.env_id}.pkl")
+                evaluations_filename = re.sub(r"[^a-zA-Z0-9]+", '-', f"pareto_archive_random_{args.agent}_slatesize_{args.slate_size}_numitems{args.num_items}_timesteps{int(args.total_timesteps)}_ranker{args.ranker}_env{args.env_id}_evaluations.pkl")
 
 
             algo.save_pareto_archive(archive_filename, evaluations_filename)
@@ -331,12 +331,12 @@ if __name__ == "__main__":
         )
 
         # load ar
-        archive_filename = re.sub(r"[^a-zA-Z0-9]+", '-', f"pareto_archive_{args.agent}_timesteps{int(args.total_timesteps)}_ranker{args.ranker}_env{args.env_id}.pkl")
-        evaluations_filename = re.sub(r"[^a-zA-Z0-9]+", '-', f"pareto_archive_{args.agent}_timesteps{int(args.total_timesteps)}_ranker{args.ranker}_env{args.env_id}_evaluations.pkl")
+        archive_filename = re.sub(r"[^a-zA-Z0-9]+", '-', f"pareto_archive_{args.agent}_slatesize_{args.slate_size}_numitems{args.num_items}_timesteps{int(args.total_timesteps)}_ranker{args.ranker}_env{args.env_id}.pkl")
+        evaluations_filename = re.sub(r"[^a-zA-Z0-9]+", '-', f"pareto_archive_{args.agent}_slatesize_{args.slate_size}_numitems{args.num_items}_timesteps{int(args.total_timesteps)}_ranker{args.ranker}_env{args.env_id}_evaluations.pkl")
 
         if args.random:
-            archive_filename = re.sub(r"[^a-zA-Z0-9]+", '-', f"pareto_archive_random_{args.agent}_timesteps{int(args.total_timesteps)}_ranker{args.ranker}_env{args.env_id}.pkl")
-            evaluations_filename = re.sub(r"[^a-zA-Z0-9]+", '-', f"pareto_archive_random_{args.agent}_timesteps{int(args.total_timesteps)}_ranker{args.ranker}_env{args.env_id}_evaluations.pkl")
+            archive_filename = re.sub(r"[^a-zA-Z0-9]+", '-', f"pareto_archive_random_{args.agent}_slatesize_{args.slate_size}_numitems{args.num_items}_timesteps{int(args.total_timesteps)}_ranker{args.ranker}_env{args.env_id}.pkl")
+            evaluations_filename = re.sub(r"[^a-zA-Z0-9]+", '-', f"pareto_archive_random_{args.agent}_slatesize_{args.slate_size}_numitems{args.num_items}_timesteps{int(args.total_timesteps)}_ranker{args.ranker}_env{args.env_id}_evaluations.pkl")
 
 
         algo.load_pareto_archive(archive_filename, evaluation_filename=evaluations_filename)

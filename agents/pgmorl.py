@@ -31,6 +31,7 @@ from .mosac_continuous_action import MOSACActor, MOSoftQNetwork, MOSAC
 from .buffer import RolloutBuffer
 from .state_encoders import GRUStateEncoder
 import torch as th
+from pathlib import Path
 
 def get_parser(parents = []):
     parser = argparse.ArgumentParser(parents = parents, add_help = False)
@@ -876,11 +877,9 @@ class PGMORL(MOAgent):
             else:
                 state_encoder = None
             _, _, returns, discounted_reward, catalog_coverage = agent.policy_eval(eval_env, weights=agent.np_weights, log=self.log, state_encoder=state_encoder, ranker=self.ranker, observable=self.observable, num_episodes=num_episodes)
-            print(f"agent {agent.id} returns: {returns}")
             # Storing current results
             self.population.add(agent, returns)
             self.archive.add(agent, returns, catalog_coverage)
-            print(add_to_prediction)
             if add_to_prediction:
                 self.predictor.add(
                     agent.weights,
@@ -1127,6 +1126,7 @@ class PGMORL(MOAgent):
             # Get the serializable data for each individual
             archive_data.append(individual.get_serializable_representation())
         
+        Path(os.path.join("data","morl")).mkdir(parents=True, exist_ok=True)
         with open(os.path.join("data","morl",filename), 'wb') as f:
             pickle.dump(archive_data, f)
 
