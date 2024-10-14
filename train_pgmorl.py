@@ -272,7 +272,8 @@ if __name__ == "__main__":
         print("Training time: ", round((time.time() - start) / 60, 2), " minutes")
         with open(os.path.join("logs", "morl", f"{csv_filename}_train.log"), "a") as f:
             f.write(f"\nTraining time: {round((time.time() - start) / 60, 2)} minutes")
-        
+            f.write(f"\n Pareto front evaluations: {algo.archive.evaluations}")
+            f.write(f"\n Catalog Coverages: {algo.archive.catalog_coverage}")
         if args.save:
             archive_filename = re.sub(r"[^a-zA-Z0-9]+", '-', f"pareto_archive_{args.agent}_slatesize_{args.slate_size}_numitems{args.num_items}_timesteps{int(args.total_timesteps)}_ranker{args.ranker}_env{args.env_id}")
             evaluations_filename = re.sub(r"[^a-zA-Z0-9]+", '-', f"pareto_archive_{args.agent}_slatesize_{args.slate_size}_numitems{args.num_items}_timesteps{int(args.total_timesteps)}_ranker{args.ranker}_env{args.env_id}_evaluations")
