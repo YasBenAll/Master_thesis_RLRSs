@@ -46,4 +46,6 @@ python /var/scratch/yal700/Master_thesis_RLRSs/train_pgmorl.py \
     --agent mosac \
     --pop-size 5 \
     --evolutionary-iterations 4 \
-    --warmup-iterations 5
+    --warmup-iterations 5 \
+    --ranker $RANKER \
+    --seed $SEED \
