@@ -206,7 +206,7 @@ def make_pareto_front_plot(evaluations, name):
         filename = f'pareto_front_random_{args.agent}_slatesize{args.slate_size}_numitems{args.num_items}_timesteps_{args.total_timesteps}_{name}.png'
 
 
-
+    Path(os.path.join("plots","morl")).mkdir(parents=True, exist_ok=True)
     plt.savefig(os.path.join("plots","morl",filename))
 
     print(f"plot saved in plots/morl/{filename}")
