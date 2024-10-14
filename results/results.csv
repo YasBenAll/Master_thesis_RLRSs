@@ -58,3 +58,10 @@ random,,sardine/SlateTopK-Bored-v0,10,500,,42.92,0.62,0.80,0.00,0.86,0.00,55.88,
 greedyoracle,,sardine/SlateTopK-Bored-v0,10,1000,,144.13,0.92,0.64,0.00,0.02,0.00,82.99,0.67
 random,,sardine/SlateTopK-Bored-v0,10,1000,,43.66,0.45,0.80,0.00,0.63,0.00,85.01,4.00
 greedyoracle,,sardine/SlateTopK-Bored-v0,20,100,,140.48,2.00,0.74,0.00,0.36,0.00,208.16,2.83
+greedyoracle,,sardine/SlateTopK-Bored-v0,20,100,,140.48,2.00,0.74,0.00,0.36,0.00,197.32,0.31
+random,,sardine/SlateTopK-Bored-v0,20,100,,48.19,1.16,0.79,0.00,1.00,0.00,199.38,1.01
+greedyoracle,,sardine/SlateTopK-Bored-v0,20,500,,162.93,1.80,0.67,0.00,0.08,0.00,196.07,1.21
+random,,sardine/SlateTopK-Bored-v0,20,500,,49.62,0.32,0.80,0.00,0.98,0.00,198.21,0.17
+greedyoracle,,sardine/SlateTopK-Bored-v0,20,1000,,157.62,2.77,0.63,0.00,0.04,0.00,231.42,1.24
+random,,sardine/SlateTopK-Bored-v0,20,1000,,50.31,0.39,0.80,0.00,0.86,0.00,233.40,0.33
+sac,gems,sardine/SlateTopK-Bored-v0,10,100,click,49.95,0.77,0.10,
