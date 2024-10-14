@@ -1,5 +1,6 @@
 import argparse
 import datetime
+import numpy as np
 import os
 import re 
 
@@ -27,10 +28,8 @@ for seed in args.seeds:
     # file_format_test = re.sub(r"[^a-zA-Z0-9]+", '_', file_format_test)
     # check for files that contain the file_format
     for file in os.listdir("logs/das6"):
-        print(file)
-        print(file_format)
         if file_format in file:
-
+            print(file)
             if "test" in file:
                 with open(os.path.join("logs/das6",file), "r") as f:
                     text = f.read()
@@ -57,30 +56,38 @@ if clicks != []:
     try:
         print(f"Average Test Reward: {(sum(clicks)/len(clicks)):.2f}")
         mean_clicks = sum(clicks)/len(clicks)
+        std_clicks = np.std(clicks)
     except:
         print("No results found for clicks")
         mean_clicks = ""
+        std_clicks = ""
     try:
         print(f"Average Test Diversity: {(sum(diversities)/len(diversities)):.2f}")
         mean_diversities = sum(diversities)/len(diversities)
+        std_diversities = np.std(diversities)
     except:
         print("No results found for diversities")
         mean_diversities = ""
+        std_diversities = ""
     try:
         print(f"Average Test Catalog Coverage: {(sum(catalog_coverages)/len(catalog_coverages)):.2f}")
         mean_catalog_coverages = sum(catalog_coverages)/len(catalog_coverages)
+        std_catalog_coverages = np.std(catalog_coverages)
     except:
         print("No results found for catalog coverages")
         mean_catalog_coverages = ""
     try:
         print(f"Average Elapsed Time: {(sum(runtime)/len(runtime)):.2f} s")
         mean_runtime = (sum(runtime)/len(runtime))
+        print(mean_runtime)
+        std_runtime = np.std(runtime)
     except:
         print("No results found for runtime")
         mean_runtime = ""
+        std_runtime = ""
 
     # save results to results/results.csv
     with open(os.path.join("results", "results.csv"), "a") as f:
-        f.write(f"\n{args.agent},{args.ranker},{args.env_id},{args.slate_size},{args.num_items},{args.reward_type},{mean_clicks:.2f},{mean_diversities:.2f},{mean_catalog_coverages:.2f},{mean_runtime}")
+        f.write(f"\n{args.agent},{args.ranker},{args.env_id},{args.slate_size},{args.num_items},{args.reward_type},{mean_clicks:.2f},{std_clicks:.2f},{mean_diversities:.2f},{std_diversities:.2f},{mean_catalog_coverages:.2f},{std_catalog_coverages:.2f},{mean_runtime},{std_runtime}")
 else:
     print("No results found")
