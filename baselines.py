@@ -52,7 +52,7 @@ def main():
 
 
 
-    slate_list = [1,3, 10, 20]
+    slate_list = [1, 3, 10, 20]
     num_items = [100, 500, 1000]
 
     slate_dict = {}
