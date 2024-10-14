@@ -253,6 +253,7 @@ if __name__ == "__main__":
         )
 
         print(f"Training PGMORL using {args.agent} on {args.env_id} with {args.total_timesteps} timesteps. random = {args.random}, observable = {args.observable}, ranker = {args.ranker}, decoder = {args.decoder_name}")
+        Path(os.path.join("logs","morl")).mkdir(parents=True, exist_ok=True)
         with open(os.path.join("logs", "morl", f"{csv_filename}_train.log"), "w") as f:
             f.write(f"Training PGMORL using {args.agent} on {args.env_id} with {args.total_timesteps} timesteps. random = {args.random}, observable = {args.observable}, ranker = {args.ranker}, decoder = {args.decoder_name}")
         
