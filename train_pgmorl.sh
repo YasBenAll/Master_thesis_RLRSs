@@ -34,7 +34,7 @@ SEED=${seeds[SLURM_ARRAY_TASK_ID]}
 
 # Run the actual experiment
 python /var/scratch/yal700/Master_thesis_RLRSs/train_pgmorl.py \
-    --exp-name final_actual \
+    --exp-name final \
     --env-embedds item_embeddings_numitems${NUM_ITEMS}.npy \
     --num-items $NUM_ITEMS \
     --slate-size ${SLATE_SIZE} \
@@ -42,7 +42,7 @@ python /var/scratch/yal700/Master_thesis_RLRSs/train_pgmorl.py \
     --steps-per-iteration $STEPS_PER_ITERATION \
     --train True --test True \
     --log False --num-envs 4 \
-    --observable True
+    --observable True \
     --agent mosac \
     --pop-size 5 \
     --evolutionary-iterations 4 \
