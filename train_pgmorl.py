@@ -360,7 +360,6 @@ if __name__ == "__main__":
             name = 'test',
             num_episodes=4
             )
-        input(algo.archive.evaluations)
         # print(evaluations)
         result = np.array([np.append( algo.archive.evaluations,algo.archive.catalog_coverage) for i, arr in enumerate(algo.archive.evaluations)])
 
