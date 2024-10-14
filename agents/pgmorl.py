@@ -1127,16 +1127,20 @@ class PGMORL(MOAgent):
             archive_data.append(individual.get_serializable_representation())
         
         Path(os.path.join("data","morl")).mkdir(parents=True, exist_ok=True)
-        with open(os.path.join("data","morl",filename), 'wb') as f:
+        with open(os.path.join("data","morl",f'{filename}.pkl'), 'wb') as f:
             pickle.dump(archive_data, f)
 
-        with open(os.path.join("data","morl",evaluation_filename), 'wb') as f:
+        with open(os.path.join("data","morl",f'{evaluation_filename}.pkl'), 'wb') as f:
             pickle.dump(self.archive.evaluations, f)
-        print(f"Pareto archive saved to {os.path.join('data','morl',filename)}")
-        print(f"Pareto archive evaluations saved to {os.path.join('data','morl',evaluation_filename)}")
+        
+        with open(os.path.join("data","morl",f'{filename}_catalog_coverage.pkl'), 'wb') as f:
+            pickle.dump(self.archive.catalog_coverage, f)
+
+        print(f"Pareto archive saved to {os.path.join('data','morl',f'{filename}.pkl')}")
+        print(f"Pareto archive evaluations saved to {os.path.join('data','morl',f'{evaluation_filename}.pkl')}")
 
     def load_pareto_archive(self, filename: str, evaluation_filename: str):
-        with open(os.path.join("data", "morl",filename), 'rb') as f:
+        with open(os.path.join("data", "morl",f'{filename}.pkl'), 'rb') as f:
             archive_data = pickle.load(f)
 
         individuals = []
@@ -1194,5 +1198,5 @@ class PGMORL(MOAgent):
 
         # Replace the archive individuals with the loaded individuals
         self.archive.individuals = individuals
-        with open(os.path.join("data", "morl", evaluation_filename), 'rb') as f:
+        with open(os.path.join("data", "morl", f'{evaluation_filename}.pkl'), 'rb') as f:
             self.archive.evaluations = pickle.load(f)
