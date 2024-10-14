@@ -5,7 +5,7 @@ import re
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--agent", type=str, required=True, choices=["reinforce", "sac", "hac", "PGMORL"], help="Type of agent")
-parser.add_argument("--env-id", type=str, required=True, help="Environment name")
+parser.add_argument("--env-id", type=str, required=False, default="sardine/SlateTopK-Bored-v0",help="Environment name")
 parser.add_argument("--seeds", type=int, nargs="+", default = [2705, 3688, 3751, 4685, 6383], help="Seeds")
 parser.add_argument("--ranker", type=str, required=True, choices=["gems", "topk"], help="Type of ranker")
 parser.add_argument("--slate-size", type=int, required=True, help="Size of the slate")
@@ -20,14 +20,17 @@ diversities = []
 catalog_coverages = []
 runtime = []
 for seed in args.seeds:
-    file_format = f"{args.agent}_{args.ranker}_env{args.env_id}_slatesize{args.slate_size}-numitems{args.num_items}-seed{seed}-reward{args.reward_type}"
-    # file_format_test = f"{args.agent}_test_slatesize{args.slate_size}-num_items{args.num_items}-seed{seed}"
+    # file_format = f"{args.agent}_{args.ranker}_env{args.env_id}_slatesize{args.slate_size}-numitems{args.num_items}-seed{seed}-reward{args.reward_type}"
+    file_format = f"{args.agent}-{args.ranker}_slatesize{args.slate_size}-num-items{args.num_items}-seed{seed}-test"
     file_format = re.sub(r"[^a-zA-Z0-9]+", '-', file_format)
     # input(file_format)
     # file_format_test = re.sub(r"[^a-zA-Z0-9]+", '_', file_format_test)
     # check for files that contain the file_format
     for file in os.listdir("logs/das6"):
+        print(file)
+        print(file_format)
         if file_format in file:
+
             if "test" in file:
                 with open(os.path.join("logs/das6",file), "r") as f:
                     text = f.read()
