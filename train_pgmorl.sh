@@ -33,17 +33,17 @@ seeds=(2705 3751 4685 3688 6383)
 SEED=${seeds[SLURM_ARRAY_TASK_ID]}
 
 # Run the actual experiment
-python /var/scratch/yal700/Master_thesis_RLRSs/train_pgmorl.py \ 
-    --exp-name final_actual \ 
+python /var/scratch/yal700/Master_thesis_RLRSs/train_pgmorl.py \
+    --exp-name final_actual \
     --env-embedds item_embeddings_numitems${NUM_ITEMS}.npy \
     --num-items $NUM_ITEMS \
     --slate-size ${SLATE_SIZE} \
     --total-timesteps $TIMESTEPS \
     --steps-per-iteration $STEPS_PER_ITERATION \
     --train True --test True \
-    --log False --num-envs 4 \ 
+    --log False --num-envs 4 \
     --observable True
-    --agent mosac \ 
+    --agent mosac \
     --pop-size 5 \
     --evolutionary-iterations 4 \
     --warmup-iterations 5
