@@ -12,6 +12,7 @@ echo "ENV ID: $ENV_ID"
 echo "Seed: $SEED"
 echo "Ranker: $RANKER"
 echo "Timesteps: $TIMESTEPS"
+echo "Steps per iteration: $STEPS_PER_ITERATION"
 
 # Load GPU drivers
 . /etc/bashrc
@@ -38,7 +39,7 @@ python /var/scratch/yal700/Master_thesis_RLRSs/train_pgmorl.py \
     --num-items $NUM_ITEMS \
     --slate-size ${SLATE_SIZE} \
     --total-timesteps $TIMESTEPS \
-    --steps-per-iteration 5000 \
+    --steps-per-iteration $STEPS_PER_ITERATION \
     --train True --test True \
     --log False --num-envs 4 \ 
     --observable True
