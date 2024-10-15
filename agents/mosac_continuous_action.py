@@ -47,12 +47,20 @@ class MOSoftQNetwork(nn.Module):
         self.net_arch = net_arch
         self.observable = observable
         # S, A -> ... -> |R| (multi-objective)
-        self.critic = mlp(
-            input_dim=40,
-            output_dim=self.reward_dim,
-            net_arch=self.net_arch,
-            activation_fn=nn.ReLU,
-        )
+        if state_dim == 57:
+            self.critic = mlp(
+                input_dim=76, # 57 + 19
+                output_dim=self.reward_dim,
+                net_arch=self.net_arch,
+                activation_fn=nn.ReLU,
+            )
+        else:
+            self.critic = mlp(
+                input_dim=40,
+                output_dim=self.reward_dim,
+                net_arch=self.net_arch,
+                activation_fn=nn.ReLU,
+            )
 
     def forward(self, x, a):
         """Forward pass of the soft Q-network."""
@@ -121,8 +129,13 @@ class MOSACActor(nn.Module):
     def get_action(self, x, return_prob = False):
         if type(x) == np.ndarray:
             x = th.from_numpy(x).float().to('cuda')
+        print(x.shape)
         if x.shape == torch.Size([57]):
             x = x.view(1, 57)
+        elif x.shape == torch.Size([128, 57]):
+            pass
+        elif x.shape == torch.Size([1, 57]):
+            pass
         elif x.shape != torch.Size([1, 30]) and x.shape != torch.Size([30]):
             x = x.view(128, 30)
         else:
@@ -267,13 +280,13 @@ class MOSAC(MOPolicy):
             obs_shape=self.obs_shape, action_shape=self.action_shape, reward_dim=self.reward_dim, net_arch=self.net_arch, observable=self.observable, hidden_size = hidden_size, state_dim = state_dim 
         ).to(self.device)
         self.qf2 = MOSoftQNetwork(
-            obs_shape=self.obs_shape, action_shape=self.action_shape, reward_dim=self.reward_dim, net_arch=self.net_arch, observable=self.observable
+            obs_shape=self.obs_shape, action_shape=self.action_shape, reward_dim=self.reward_dim, net_arch=self.net_arch, observable=self.observable, state_dim = state_dim
         ).to(self.device)
         self.qf1_target = MOSoftQNetwork(
-            obs_shape=self.obs_shape, action_shape=self.action_shape, reward_dim=self.reward_dim, net_arch=self.net_arch,  observable=self.observable
+            obs_shape=self.obs_shape, action_shape=self.action_shape, reward_dim=self.reward_dim, net_arch=self.net_arch,  observable=self.observable, state_dim = state_dim 
         ).to(self.device)
         self.qf2_target = MOSoftQNetwork(
-            obs_shape=self.obs_shape, action_shape=self.action_shape, reward_dim=self.reward_dim, net_arch=self.net_arch, observable=self.observable
+            obs_shape=self.obs_shape, action_shape=self.action_shape, reward_dim=self.reward_dim, net_arch=self.net_arch, observable=self.observable, state_dim = state_dim 
         ).to(self.device)
         self.qf1_target.requires_grad_(False)
         self.qf2_target.requires_grad_(False)
