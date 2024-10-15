@@ -507,16 +507,15 @@ def make_env(env_id, seed, observation_shape, run_name, gamma, observable, decod
     Returns:
         A function to create environments
     """
-
     def thunk():
         if args.ranker == "gems":
-            env = GeMS(mo_gym.make(env_id, morl=True, slate_size=args.slate_size, env_embedds=args.env_embedds, num_items=args.num_items), 
+            env = GeMS(mo_gym.make(env_id, morl=True, slate_size=args.slate_size, env_embedds=args.env_embedds, num_items=args.num_items, ml100k = args.ml100k), 
                         path = args.data_dir + "GeMS/decoder/" + args.exp_name + "/" + args.run_name + ".pt",
                         device = args.device,
                         decoder = decoder,
                         )
         elif args.ranker == "topk":
-            env = TopK(mo_gym.make(env_id, morl=True, slate_size=args.slate_size, env_embedds=args.env_embedds, num_items=args.num_items), 
+            env = TopK(mo_gym.make(env_id, morl=True, slate_size=args.slate_size, env_embedds=args.env_embedds, num_items=args.num_items, ml100k = args.ml100k), 
                         "ideal", 
                         min_action = 0, 
                         max_action = 1)
@@ -599,6 +598,7 @@ class PGMORL(MOAgent):
         agent: str = 'moppo',
         test: str = False,
         filename: str = None,
+        ml100k: bool = False,
         
     ):
         """Initializes the PGMORL agent.
@@ -643,41 +643,44 @@ class PGMORL(MOAgent):
         """
         super().__init__(env, device=device, seed=seed)
         # Env dimensions
-
-        self.tmp_env = GeMS(mo_gym.make(env_id),
-                       path = args.data_dir + "GeMS/decoder/" + args.exp_name + "/" + args.run_name + ".pt",
-                       device = args.device,
-                       decoder = decoder,
-                    )
-        self.filename = filename
-        self.extract_env_info(self.tmp_env)
-        self.test = test
         self.env_id = env_id
+        self.ml100k = ml100k
+        self.observable = observable
+        self.ranker = ranker
+        self.args = args
+        self.decoder = decoder
+        # GeMS 
+        self.buffer = buffer
+        if self.ranker == 'gems':
+            self.observation_shape = 16 # latent dimenstion of the GeMS model
+        if self.ml100k:
+            self.observation_shape = 57
+        else:
+            self.observation_shape = 30
+        self.observation_space = gym.spaces.Box(low=-2, high=2, shape=(self.observation_shape,), dtype=np.float32)
+        self.action_space = gym.spaces.Box(low=0, high=1, shape=(self.observation_shape,), dtype=np.float32)
+
+        self.tmp_env = make_env(
+                    self.env_id,
+                    args.seed,
+                    self.observation_shape,
+                    self.observable,
+                    self.ranker,
+                    self.args,
+                    self.decoder,
+                    self.args,
+                )()
+        self.filename = filename
+        # self.extract_env_info(self.tmp_env)
+        self.test = test
+
         self.num_envs = num_envs
         self.action_space = self.tmp_env.action_space
         assert isinstance(self.action_space, gym.spaces.Box), "only continuous action space is supported"
         self.tmp_env.close()
         self.gamma = gamma
 
-        # GeMS 
-        self.decoder = decoder
-        self.observable = observable
-        self.ranker = ranker
-        self.args = args
-        self.buffer = buffer
-        if self.ranker == 'gems':
-            self.observation_shape = 16 # latent dimenstion of the GeMS model
-        else:
-            self.observation_shape = 30
-        # self.num_topics = num_topics
-        # self.observation_space = gym.spaces.Dict({
-        #     'slate': gym.spaces.MultiDiscrete([self.num_items for i in range(self.slate_size)]),
-        #     'clicks': gym.spaces.MultiBinary(self.slate_size),
-        #     'hist': gym.spaces.Box(low=0, high=1, shape=(self.num_topics,), dtype=np.float32)
-        # })
-        # encoded 
-        self.observation_space = gym.spaces.Box(low=-2, high=2, shape=(self.observation_shape,), dtype=np.float32)
-        self.action_space = gym.spaces.Box(low=0, high=1, shape=(self.observation_shape,), dtype=np.float32)
+
         self.reward_dim = 2
         self.agent = agent
 
@@ -691,7 +694,7 @@ class PGMORL(MOAgent):
                     self.ranker,
                     self.args,
                     self.decoder,
-                    self.args
+                    self.args,
                 )]
         self.env = mo_gym.MOSyncVectorEnv(envs)
 
@@ -737,7 +740,6 @@ class PGMORL(MOAgent):
         self.log = log
         if self.log:
             self.setup_wandb(project_name, experiment_name, wandb_entity, group)
-        print(self.agent)
         if self.agent == 'moppo':
             self.networks = [
                 MOPPONet(
