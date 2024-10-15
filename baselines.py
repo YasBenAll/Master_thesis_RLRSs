@@ -25,9 +25,6 @@ def parse_args():
     parser.add_argument("--val-interval", type=int, default=100, help="Interval between validation steps.")
     parser.add_argument("--log-dir", type=str, default="logs", help="Directory to save logs.")
     parser.add_argument("--slate-size", type=int, default=10, help="Size of the slate.")
-    parser.add_argument("--env-embedds", type=str, default="item_embeddings_numitems")
-    parser.add_argument("--user-priors", type=str, default=None, help="Path to user priors.")
-    parser.add_argument("--num-topics", type=int, default=10, help="Number of topics in the dataset.")
     
     return parser.parse_args()
 
