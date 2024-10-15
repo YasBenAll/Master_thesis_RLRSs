@@ -35,7 +35,7 @@ class Sardine(gym.Env):
                 recent_items_maxlen : int, boredom_threshold : int, boredom_moving_window : int, 
                 env_embedds : str, click_model : _CLICK_MODELS, rel_threshold : float, 
                 diversity_penalty : float, diversity_threshold : int, click_prop : float,
-                boredom_type : _BOREDOM_TYPES, rel_penalty : bool, user_priors = None, morl: bool = False, render_mode=None, reward_type: str ="click", **kwargs):
+                boredom_type : _BOREDOM_TYPES, rel_penalty : bool, ml100k:bool = False, morl: bool = False, render_mode=None, reward_type: str ="click", **kwargs):
         super().__init__()
         self.morl = morl
         self.recommended_items = set() 
@@ -78,18 +78,23 @@ class Sardine(gym.Env):
         self.diversity = 0
 
         # user priors for generating embeddings
-        if user_priors is not None:
-            self.user_priors = np.load(os.path.join(DATA_REC_SIM_EMBEDDS, user_priors))['priors']
+        self.ml100k = ml100k
+        if ml100k:
+            self.user_priors = np.load(os.path.join(DATA_REC_SIM_EMBEDDS, "user_priors_ml-100k.npz"))['priors']
+            self.num_topics = 19
+            self.num_items = 1682
+            self.env_embedds = "item_embedds_ml-100k.npy" # just making sure that my typos don't mess up the code. Too much arguments...
+            print("Using ML-100k dataset")
         else:
             self.user_priors = None
+            self.num_topics = 10        
+            print("Using synthetic dataset")
         ### Item generation
-        self._init_item_embeddings(env_embedds)
+        self._init_item_embeddings()
         self._set_topic_for_items()
 
     def engagement_reward(self, clicks):
         return np.sum(clicks)
-
-
 
     def diversity_reward(self, slate):
         from scipy.spatial.distance import cosine
@@ -119,35 +124,42 @@ class Sardine(gym.Env):
         else:
             self.propensities = env_propensities
 
-    def _init_item_embeddings(self, env_embedds : str):
+    def _init_item_embeddings(self):
         """
         Initializes item embeddings
         """
-        if env_embedds is None: # Generate new item embeddings
-            # Item embeddings with only a certain number of topics
-            # Values for other topics are completely zeroed out
-            num_topics_per_item = 2 # Average number of topics per item
-            self.item_embedd = np.random.rand(self.num_items, self.num_topics)
-            # Create a boolean tensor of shape [num_items, num_topics] filled with False values
-            mask = np.zeros((self.num_items, self.num_topics), dtype=bool)
-            # Force items to have between 2 and 3 topics
-            # Since all items which have single topics are identical to each other (i.e., same one-hot vector),
-            # Utilize items between 2 and 3 topics
-            num_true_values = np.random.randint(num_topics_per_item, num_topics_per_item + 2, (self.num_items,))
-            for i in range(self.num_items):
-                indices = np.random.permutation(self.num_topics)[:num_true_values[i]]
-                mask[i, indices] = True
-            self.item_embedd *= mask
-            embedd_norm = np.linalg.norm(self.item_embedd, axis = -1)
+        # if env_embedds is None: # Generate new item embeddings
+            # # Item embeddings with only a certain number of topics
+            # # Values for other topics are completely zeroed out
+            # num_topics_per_item = 2 # Average number of topics per item
+            # self.item_embedd = np.random.rand(self.num_items, self.num_topics)
+            # # Create a boolean tensor of shape [num_items, num_topics] filled with False values
+            # mask = np.zeros((self.num_items, self.num_topics), dtype=bool)
+            # # Force items to have between 2 and 3 topics
+            # # Since all items which have single topics are identical to each other (i.e., same one-hot vector),
+            # # Utilize items between 2 and 3 topics
+            # num_true_values = np.random.randint(num_topics_per_item, num_topics_per_item + 2, (self.num_items,))
+            # for i in range(self.num_items):
+            #     indices = np.random.permutation(self.num_topics)[:num_true_values[i]]
+            #     mask[i, indices] = True
+            # self.item_embedd *= mask
+            # embedd_norm = np.linalg.norm(self.item_embedd, axis = -1)
 
-            self.item_embedd /= embedd_norm[:, np.newaxis]
-            np.save(os.path.join(DATA_REC_SIM_EMBEDDS, f"item_embeddings_num_items{self.num_items}"), self.item_embedd)
-        else: # Load existing item embeddings
-            import torch
-            if env_embedds[-3:] == ".pt":
-                self.item_embedd = torch.load(os.path.join("sardine", "embeddings", env_embedds))
-            else:
-                self.item_embedd = np.load(os.path.join("sardine","embeddings", env_embedds))
+            # self.item_embedd /= embedd_norm[:, np.newaxis]
+            # np.save(os.path.join(DATA_REC_SIM_EMBEDDS, f"item_embeddings_num_items{self.num_items}"), self.item_embedd)
+
+            # We don't include the option that the user has no embeddings. Stop the program.
+            # raise ValueError("No item embeddings are provided.")
+
+        # else: # Load existing item embeddings
+            # import torch
+            # if env_embedds[-3:] == ".pt":
+            #     self.item_embedd = torch.load(os.path.join("sardine", "embeddings", env_embedds))
+            # else:
+        if self.ml100k:
+            self.item_embedd = np.load(os.path.join("sardine","embeddings", f"item_embeddings_ml-100k.npy"))
+        else:
+            self.item_embedd = np.load(os.path.join("sardine","embeddings", f"item_embeddings_numitems{self.num_items}.npy"))
     def _set_topic_for_items(self):
         """
         Sets main topic for each item
@@ -173,7 +185,8 @@ class Sardine(gym.Env):
         '''
         # User embedding where users are only interested in a certain number of topics
         # Values for other topics are completely zeroed out
-        if self.user_priors is None:
+        # if self.user_priors is None:
+        if not self.ml100k:
             num_topics_per_user = 4 # Average number of topics per user
             threshold = 1 - float(num_topics_per_user) / self.num_topics
             self.user_embedd = self.np_random.uniform(size = (self.num_topics,))
@@ -184,11 +197,15 @@ class Sardine(gym.Env):
             embedd_norm = np.linalg.norm(self.user_embedd)
             self.user_embedd /= embedd_norm
         else:
-            user_type = np.random.choice(["generalist", "specialist"], p = [1 - specialist_ratio, specialist_ratio])
-            if user_type == "generalist":
-                samples = np.random.choice(len(self.user_priors), size=np.random.choice([4,5,6]), p=self.user_priors, replace=False)
-            else:
-                samples = np.random.choice(len(self.user_priors), size=np.random.choice([1,2,3]), p=self.user_priors, replace=False)
+            # user_type = np.random.choice(["generalist", "specialist"], p = [1 - specialist_ratio, specialist_ratio])
+            # if user_type == "generalist":
+            #     samples = np.random.choice(len(self.user_priors), size=np.random.choice([4,5,6]), p=self.user_priors, replace=False)
+            # else:
+            #     samples = np.random.choice(len(self.user_priors), size=np.random.choice([1,2,3]), p=self.user_priors, replace=False)
+
+
+            num_topics_per_user = np.random.choice([7,8]) # ml-100k has 19 genres, so double the number of topics interested per user
+            samples = np.random.choice(len(self.user_priors), size=num_topics_per_user , p=self.user_priors, replace=False)
             self.user_embedd = np.zeros(self.num_topics)
             self.user_embedd[samples] = 1
             self.user_embedd /= np.linalg.norm(self.user_embedd)

@@ -113,4 +113,16 @@ def get_generic_parser(parents = []):
         default=10,
         help="Size of the slate.",
     )
+    parser.add_argument(
+        "--num-topics",
+        type=int,
+        default=10,
+        help="Number of topics in the dataset.",
+    )
+    parser.add_argument(
+        "--ml100k",
+        type=lambda x: bool(strtobool(x)),
+        default=False,
+        help="Whether to use the ml100k dataset",
+    )
     return parser

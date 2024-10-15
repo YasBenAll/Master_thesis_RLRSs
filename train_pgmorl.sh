@@ -13,6 +13,7 @@ echo "Seed: $SEED"
 echo "Ranker: $RANKER"
 echo "Timesteps: $TIMESTEPS"
 echo "Steps per iteration: $STEPS_PER_ITERATION"
+echo "ML100K: $ML100K"
 
 # Load GPU drivers
 . /etc/bashrc
@@ -35,13 +36,14 @@ SEED=${seeds[SLURM_ARRAY_TASK_ID]}
 # Run the actual experiment
 python /var/scratch/yal700/Master_thesis_RLRSs/train_pgmorl.py \
     --exp-name final \
-    --env-embedds item_embeddings_numitems${NUM_ITEMS}.npy \
     --num-items $NUM_ITEMS \
     --slate-size ${SLATE_SIZE} \
     --total-timesteps $TIMESTEPS \
     --steps-per-iteration $STEPS_PER_ITERATION \
-    --train True --test True \
-    --log False --num-envs 4 \
+    --train True \
+    --test True \
+    --log False \
+    --num-envs 4 \
     --observable True \
     --agent mosac \
     --pop-size 5 \
@@ -49,3 +51,4 @@ python /var/scratch/yal700/Master_thesis_RLRSs/train_pgmorl.py \
     --warmup-iterations 5 \
     --ranker $RANKER \
     --seed $SEED \
+    --ml100k $ML100K \

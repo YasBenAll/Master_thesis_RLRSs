@@ -215,9 +215,13 @@ if __name__ == "__main__":
 
     args = get_parser([get_generic_parser()]).parse_args()
     if args.observable:
-        args.state_dim = 30
-
-    csv_filename = f"pgmorl-{args.ranker}_slatesize{args.slate_size}_num_items{args.slate_size}_seed{str(args.seed)}{datetime.datetime.now()}"
+        if args.ml100k:
+            args.state_dim = 57
+        else:
+            args.state_dim = 30
+    if args.ml100k: 
+        args.num_items = 1682
+    csv_filename = f"pgmorl-{args.ranker}_slatesize{args.slate_size}_num_items{args.num_items}_seed{str(args.seed)}{datetime.datetime.now()}"
     csv_filename = re.sub(r"[^a-zA-Z0-9]+", '-', csv_filename)
 
     decoder = torch.load(os.path.join(args.data_dir,"GeMS", "decoder", args.exp_name, args.decoder_name), map_location=torch.device('cpu')).to(args.device)
@@ -228,7 +232,6 @@ if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() and args.device == "cuda" else "cpu")
     if device.type != "cpu":
         torch.set_default_tensor_type("torch.cuda.FloatTensor")
-
 
     if args.train:
         algo = PGMORL(
@@ -249,14 +252,14 @@ if __name__ == "__main__":
             ranker = args.ranker,
             observable=args.observable,
             steps_per_iteration=args.steps_per_iteration,
-            filename = csv_filename
+            filename = csv_filename,
+            ml100k = args.ml100k
         )
 
         print(f"Training PGMORL using {args.agent} on {args.env_id} with {args.total_timesteps} timesteps. random = {args.random}, observable = {args.observable}, ranker = {args.ranker}, decoder = {args.decoder_name}")
         Path(os.path.join("logs","morl")).mkdir(parents=True, exist_ok=True)
         with open(os.path.join("logs", "morl", f"{csv_filename}_train.log"), "w") as f:
             f.write(f"Training PGMORL using {args.agent} on {args.env_id} with {args.total_timesteps} timesteps. random = {args.random}, observable = {args.observable}, ranker = {args.ranker}, decoder = {args.decoder_name}")
-        
         eval_env = make_env(env_id=args.env_id, seed=args.seed+1, run_name="Sardine_pgmorl", gamma=0.8, observable=args.observable, decoder=decoder, observation_shape = 16, args = args)()
         num_users_generated = 0
         import time
@@ -329,7 +332,8 @@ if __name__ == "__main__":
             ranker = args.ranker,
             observable=args.observable,
             steps_per_iteration=args.steps_per_iteration,
-            filename = csv_filename
+            filename = csv_filename,
+            ml100k = args.ml100k,
         )
 
         # load ar
