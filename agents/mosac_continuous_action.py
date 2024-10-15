@@ -98,6 +98,10 @@ class MOSACActor(nn.Module):
         self.fc2 = nn.Linear(hidden_size, hidden_size)
         self.fc_mean = nn.Linear(256, 10)
         self.fc_logstd = nn.Linear(256, 10)
+        if self.state_dim == 57:
+            self.fc_mean = nn.Linear(256, 19)
+            self.fc_logstd = nn.Linear(256, 19)
+
         # action rescaling
         self.register_buffer("action_scale", th.FloatTensor((action_upper_bound - action_lower_bound) / 2.0),
         )
@@ -117,7 +121,9 @@ class MOSACActor(nn.Module):
     def get_action(self, x, return_prob = False):
         if type(x) == np.ndarray:
             x = th.from_numpy(x).float().to('cuda')
-        if x.shape != torch.Size([1, 30]) and x.shape != torch.Size([30]):
+        if x.shape == torch.Size([57]):
+            x = x.view(1, 57)
+        elif x.shape != torch.Size([1, 30]) and x.shape != torch.Size([30]):
             x = x.view(128, 30)
         else:
             x = x.view(1, 30)
