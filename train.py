@@ -46,18 +46,6 @@ def get_parser(parents = [], args = None):
         default="click",
         choices=["click", "diversity"],
     )
-    parser.add_argument(
-        "--user-priors",
-        type=str,
-        default=None, 
-        help="Path to user priors."
-    )
-    parser.add_argument(
-        "--num-topics",
-        type=int,
-        default=10,
-        help="Number of topics in the dataset.",
-    )
 
     if args is not None:
         args, _ = parser.parse_known_args(args)
@@ -68,8 +56,6 @@ def get_parser(parents = [], args = None):
         parser = gems.get_parser(parents = [parser])
     if args.agent == "sac":
         parser = sac.get_parser(parents = [parser])
-    if args.agent == "slateQ":
-        parser = slateQ.get_parser(parents = [parser])
     if args.agent == "reinforce":
         parser = topk_reinforce.get_parser(parents = [parser])
     if args.agent == "hac":
