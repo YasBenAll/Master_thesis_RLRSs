@@ -179,7 +179,7 @@ def make_env(
     morl=False,
 ):
     def thunk():
-        env = gym.make(env_id, morl=morl, slate_size=args.slate_size, num_items=args.num_items, env_embedds = args.env_embedds)
+        env = gym.make(env_id, morl=morl, slate_size=args.slate_size, num_items=args.num_items, env_embedds = args.env_embedds, ml100k=args.ml100k)
         env = gym.wrappers.RecordEpisodeStatistics(env)
         if observable:
             env = IdealState(env)

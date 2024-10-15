@@ -245,7 +245,7 @@ def make_env(
     reward_type,
 ):
     def thunk():
-        env = gym.make(env_id, morl = args.morl, slate_size = args.slate_size, reward_type = reward_type, env_embedds=args.env_embedds, num_topics = args.num_topics, user_priors = args.user_priors)
+        env = gym.make(env_id, morl = args.morl, slate_size = args.slate_size, reward_type = reward_type, env_embedds=args.env_embedds, ml100k=args.ml100k)
         env = gym.wrappers.RecordEpisodeStatistics(env)
         if ranker == "topk":
             if args.item_embeddings == "ideal":
