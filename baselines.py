@@ -17,7 +17,7 @@ from agents.plots import plot
 def parse_args():
     parser = argparse.ArgumentParser(description="Environment Evaluation")
     parser.add_argument("--morl", type=lambda x: bool(strtobool(x)), default=False, help="Specify if the algorithm is multi-objective.")
-    parser.add_argument("--env-ids", type=str, nargs='+', default=["sardine/SingleItem-Static-v0"], help="List of environment IDs.")
+    parser.add_argument("--env-ids", type=str, nargs='+', default=["sardine/SlateTopK-Bored-v0"], help="List of environment IDs.")
     parser.add_argument("--methods", type=str, nargs='+', default=["random"], help="List of methods to evaluate.")
     parser.add_argument("--seeds", type=int, nargs='+', default=[2705, 3751, 4685, 3688, 6383], help="List of seeds for reproducibility.")
     parser.add_argument("--n-val-episodes", type=int, default=500, help="Number of validation episodes.")
@@ -25,6 +25,7 @@ def parse_args():
     parser.add_argument("--val-interval", type=int, default=100, help="Interval between validation steps.")
     parser.add_argument("--log-dir", type=str, default="logs", help="Directory to save logs.")
     parser.add_argument("--slate-size", type=int, default=10, help="Size of the slate.")
+    parser.add_argument("--ml100k", type=lambda x: bool(strtobool(x)), default=False, help="Specify if the environment is MovieLens-100K.")
     
     return parser.parse_args()
 
@@ -46,11 +47,8 @@ def log_data(method, steps, returns, log_dir):
 def main():
     args = parse_args()
 
-
-
-
     slate_list = [1, 3, 10, 20]
-    num_items = [100, 500, 1000]
+    num_items = [1682]
 
     slate_dict = {}
     for slate_size in slate_list:
@@ -58,7 +56,7 @@ def main():
             
             for env_id in args.env_ids:
                 # Make the environment
-                env = gym.make(env_id, slate_size=slate_size, morl=args.morl, num_items=num_item, num_topics = args.num_topics, env_embedds = args.env_embedds+str(num_item)+".npy", user_priors = args.user_priors)
+                env = gym.make(env_id, slate_size=slate_size, morl=args.morl, num_items=num_item, ml100k = args.ml100k)
                 env_name = "-".join(env_id.lower().split("-")[:-1])
                 env_dict = {}
                 scores_dict = {}
