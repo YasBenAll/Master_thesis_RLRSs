@@ -21,20 +21,24 @@ diversities = []
 catalog_coverages = []
 runtime = []
 for seed in args.seeds:
-    # file_format = f"{args.agent}_{args.ranker}_env{args.env_id}_slatesize{args.slate_size}-numitems{args.num_items}-seed{seed}-reward{args.reward_type}"
-    file_format = f"{args.agent}-{args.ranker}_slatesize{args.slate_size}-num-items{args.num_items}-seed{seed}-test"
+    file_format = f"{args.agent}_{args.ranker}_env{args.env_id}_slatesize{args.slate_size}-numitems{args.num_items}-seed{seed}-reward{args.reward_type}"
+    # file_format = f"{args.agent}-{args.ranker}_slatesize{args.slate_size}-num-items{args.num_items}-seed{seed}-test"
     file_format = re.sub(r"[^a-zA-Z0-9]+", '-', file_format)
     # input(file_format)
     # file_format_test = re.sub(r"[^a-zA-Z0-9]+", '_', file_format_test)
     # check for files that contain the file_format
     for file in os.listdir("logs/das6"):
-        if file_format in file:
+        if "1682" in file:
             print(file)
+            print(file_format)
+        if file_format in file:
+            print("yes")
             if "test" in file:
                 with open(os.path.join("logs/das6",file), "r") as f:
                     text = f.read()
                     # find the line that contains the test reward
                     test_reward = float(re.search(r"Average Return: (\d+\.\d+)", text).group(1))
+                    print(test_reward)
                     clicks.append(test_reward)
 
                     test_diversity = float(re.search(r"Average Diversity: (\d+\.\d+)", text).group(1))
