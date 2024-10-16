@@ -129,7 +129,6 @@ class MOSACActor(nn.Module):
     def get_action(self, x, return_prob = False):
         if type(x) == np.ndarray:
             x = th.from_numpy(x).float().to('cuda')
-        print(x.shape)
         if x.shape == torch.Size([57]):
             x = x.view(1, 57)
         elif x.shape == torch.Size([128, 57]):
