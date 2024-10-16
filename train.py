@@ -70,6 +70,8 @@ def main(parents = []):
             decoder = torch.load(os.path.join(args.data_dir, "GeMS", "decoder", args.exp_name,args.decoder_name+".pt"), map_location=torch.device('cpu')).to(args.device)
         else: 
             decoder = None
+    if args.ml100k: 
+        args.num_items = 1682 # for logging purposes only as the number of items get set to 1682 in the simulator but not in the logging module
     pl.seed_everything(args.seed)
     torch.backends.cudnn.deterministic = args.torch_deterministic
     device = torch.device("cuda" if torch.cuda.is_available() and args.device == "cuda" else "cpu")
