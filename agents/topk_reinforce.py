@@ -230,6 +230,8 @@ class Actor(nn.Module):
 
 def train(args, decoder = None):
     run_name = f"{args.env_id}__{args.run_name}__{args.seed}__{int(time.time())}"
+    if args.ml100k: 
+        args.num_items = 1682
     if args.track == "wandb":
         import wandb
     elif args.track == "tensorboard":
