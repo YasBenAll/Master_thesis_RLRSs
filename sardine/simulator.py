@@ -45,14 +45,30 @@ class Sardine(gym.Env):
         self.slate_size = slate_size
         self.H = episode_length
         ### Observation and action spaces
+
+
+        # user priors for generating embeddings
+        self.ml100k = ml100k
+        if ml100k:
+            self.user_priors = np.load(os.path.join(DATA_REC_SIM_EMBEDDS, "user_priors_ml-100k.npz"))['priors']
+            self.num_topics = 19
+            self.num_items = 1682
+            self.env_embedds = "item_embedds_ml-100k.npy" # just making sure that my typos don't mess up the code. Too much arguments...
+            print("Using ML-100k dataset")
+        else:
+            self.user_priors = None
+            self.num_topics = 10        
+            print("Using synthetic dataset")
+
+
         self.observation_space = spaces.Dict(
             {
-                "slate": spaces.MultiDiscrete([num_items] * slate_size),
+                "slate": spaces.MultiDiscrete([self.num_items] * slate_size),
                 "clicks": spaces.MultiBinary(n = slate_size),
-                "hist": spaces.Box(low = 0, high = 1, shape=(num_topics,), dtype=np.float32)
+                "hist": spaces.Box(low = 0, high = 1, shape=(self.num_topics,), dtype=np.float32)
             }
         )
-        self.action_space = spaces.MultiDiscrete([num_items] * slate_size)
+        self.action_space = spaces.MultiDiscrete([self.num_items] * slate_size)
         self.reward_type = reward_type
 
 
@@ -77,18 +93,6 @@ class Sardine(gym.Env):
 
         self.diversity = 0
 
-        # user priors for generating embeddings
-        self.ml100k = ml100k
-        if ml100k:
-            self.user_priors = np.load(os.path.join(DATA_REC_SIM_EMBEDDS, "user_priors_ml-100k.npz"))['priors']
-            self.num_topics = 19
-            self.num_items = 1682
-            self.env_embedds = "item_embedds_ml-100k.npy" # just making sure that my typos don't mess up the code. Too much arguments...
-            print("Using ML-100k dataset")
-        else:
-            self.user_priors = None
-            self.num_topics = 10        
-            print("Using synthetic dataset")
         ### Item generation
         self._init_item_embeddings()
         self._set_topic_for_items()
