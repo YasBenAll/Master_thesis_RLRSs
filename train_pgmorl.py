@@ -273,7 +273,8 @@ if __name__ == "__main__":
                 csv_filename = csv_filename + "_train"
             )
         print("Training time: ", round((time.time() - start) / 60, 2), " minutes")
-        with open(os.path.join("logs", "morl", f"{csv_filename}_train.log"), "a") as f:
+        print(os.path.join("logs","morl",f'{csv_filename}.log'))
+        with open(os.path.join("logs","morl",f'{csv_filename}.log'), "a") as f:
             f.write(f"\nTraining time: {round((time.time() - start) / 60, 2)} minutes")
             f.write(f"\n Pareto front evaluations: {algo.archive.evaluations}")
             f.write(f"\n Catalog Coverages: {algo.archive.catalog_coverage}")

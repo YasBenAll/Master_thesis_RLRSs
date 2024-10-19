@@ -41,8 +41,8 @@ python /var/scratch/yal700/Master_thesis_RLRSs/train_pgmorl.py \
     --total-timesteps $TIMESTEPS \
     --steps-per-iteration $STEPS_PER_ITERATION \
     --train True \
-    --test True \
-    --log False \
+    --test False \
+    --log True \
     --num-envs 4 \
     --observable True \
     --agent mosac \
