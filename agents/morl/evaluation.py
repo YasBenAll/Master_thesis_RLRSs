@@ -148,7 +148,7 @@ def eval_mo_reward_conditioned(
 
 
 def policy_evaluation_mo(
-    agent, env, w: np.ndarray, scalarization=np.dot, rep: int = 5, state_encoder: th.nn.Module = None, num_envs: int = 1, ranker: str = "gems", observable: bool = False
+    agent, env, w: np.ndarray, scalarization=np.dot, rep: int = 5, state_encoder: th.nn.Module = None, num_envs: int = 1, ranker: str = "gems", observable: bool = False,
 ) -> Tuple[float, float, np.ndarray, np.ndarray]:
     """Evaluates the value of a policy by running the policy for multiple episodes. Returns the average returns.
 
@@ -189,6 +189,7 @@ def log_all_multi_policy_metrics(
     name: str = "eval",
     iteration: int = 0,
     filename: str = None,
+    _wandb: bool = False
 ):
     """Logs all metrics for multi-policy training.
 
@@ -221,24 +222,27 @@ def log_all_multi_policy_metrics(
 
     print(f"hypervolume: {hv}, sparsity: {sp}, eum: {eum}, cardinality: {card}")
 
-    wandb.log(
-        {
-            f"eval_{name}/hypervolume": hv,
-            f"eval_{name}/sparsity": sp,
-            f"eval_{name}/eum": eum,
-            f"eval_{name}/cardinality": card,
-            f"global_step_{f'iteration{iteration}'}": global_step,
-        },
-        commit=False,
-    )
-    with open(os.path.join("logs", "morl", filename+"_train.log"), "a") as f:
+    if _wandb:
+        wandb.log(
+            {
+                f"eval_{name}/hypervolume": hv,
+                f"eval_{name}/sparsity": sp,
+                f"eval_{name}/eum": eum,
+                f"eval_{name}/cardinality": card,
+                f"global_step_{f'iteration{iteration}'}": global_step,
+            },
+            commit=False,
+        )
+    with open(filename, "a") as f:
         f.write(f"\nstep:{global_step},hv:{hv},sp:{sp},eum:{eum},card:{card}")
 
     front = wandb.Table(
         columns=[f"objective_{i}" for i in range(1, reward_dim + 1)],
         data=[p.tolist() for p in filtered_front],
     )
-    wandb.log({"eval/front": front})
+
+    if _wandb:
+        wandb.log({"eval/front": front})
 
     # If PF is known, log the additional metrics
     if ref_front is not None:

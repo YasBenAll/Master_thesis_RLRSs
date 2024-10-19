@@ -67,13 +67,13 @@ class MOPolicy(ABC):
         else:
             idstr = f"_{self.id}"
 
-        wandb.log(
-            {
-                f"eval{idstr}/scalarized_return": scalarized_return,
-                f"eval{idstr}/scalarized_discounted_return": scalarized_discounted_return,
-                "global_step": self.global_step,
-            }
-        )
+        # wandb.log(
+        #     {
+        #         f"eval{idstr}/scalarized_return": scalarized_return,
+        #         f"eval{idstr}/scalarized_discounted_return": scalarized_discounted_return,
+        #         "global_step": self.global_step,
+        #     }
+        # )
         for i in range(vec_return.shape[0]):
             n = 1
             if i == 0:
@@ -82,12 +82,12 @@ class MOPolicy(ABC):
             elif i == 1:
                 name = "cumulative diversity"
                 n = 100
-            wandb.log(
-                {f"eval{idstr}/{name}": vec_return[i]/n},
-            )
-        wandb.log(
-            {f"eval{idstr}/catalog_coverage": catalog_coverage},
-        )
+            # wandb.log(
+            #     {f"eval{idstr}/{name}": vec_return[i]/n},
+            # )
+        # wandb.log(
+        #     {f"eval{idstr}/catalog_coverage": catalog_coverage},
+        # )
 
     def policy_eval(
         self,

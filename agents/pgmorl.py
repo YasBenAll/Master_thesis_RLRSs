@@ -32,6 +32,7 @@ from .buffer import RolloutBuffer
 from .state_encoders import GRUStateEncoder
 import torch as th
 from pathlib import Path
+from .utils.memory_usage import log_memory_usage
 
 def get_parser(parents = []):
     parser = argparse.ArgumentParser(parents = parents, add_help = False)
@@ -738,8 +739,8 @@ class PGMORL(MOAgent):
 
         # Logging
         self.log = log
-        if self.log:
-            self.setup_wandb(project_name, experiment_name, wandb_entity, group)
+        # if self.log:
+        #     self.setup_wandb(project_name, experiment_name, wandb_entity, group)
         if self.agent == 'moppo':
             self.networks = [
                 MOPPONet(
@@ -752,6 +753,9 @@ class PGMORL(MOAgent):
                 for _ in range(self.pop_size)
             ]
         weights = generate_weights(self.delta_weight)
+        self.log_file_dir=os.path.join("logs","morl",f'{self.filename}.log')
+        print(f"Logging to {self.log_file_dir}")
+        log_memory_usage(make_file=True, file_path=self.log_file_dir)
         print(f"Warmup phase - sampled weights: {weights}")
 
         if self.agent == 'moppo':
@@ -852,12 +856,14 @@ class PGMORL(MOAgent):
         }
 
     def __train_all_agents(self, iteration: int, max_iterations: int, steps_per_iteration: int = 5555):
+        log_memory_usage(file_path=self.log_file_dir ,step=self.global_step, tag="Before training agents")
         for i, agent in enumerate(self.agents):
             if not self.observable:
                 state_encoder = self.state_encoders[i]
             else:
                 state_encoder = None
             agent.train(self.start_time, iteration, max_iterations, state_encoder=state_encoder, total_timesteps=self.steps_per_iteration)
+        log_memory_usage(file_path=self.log_file_dir ,step=self.global_step, tag="After training agents")  # After training agents
         self.global_step+=self.steps_per_iteration
     def __eval_all_agents(
         self,
@@ -870,9 +876,11 @@ class PGMORL(MOAgent):
         name: str = 'test',
         iteration: int = 0,
         num_episodes: int = 5,
-        num_test_weights_for_eval: int = 50
+        num_test_weights_for_eval: int = 50,
     ):
         """Evaluates all agents and store their current performances on the buffer and pareto archive."""
+        with open(self.log_file_dir, "a") as f:
+            f.write(f"\niteration: {iteration}, step: {self.global_step}\n")
         for i, agent in enumerate(self.agents):
             if not self.observable:
                 state_encoder = self.state_encoders[i]
@@ -880,6 +888,8 @@ class PGMORL(MOAgent):
                 state_encoder = None
             _, _, returns, discounted_reward, catalog_coverage = agent.policy_eval(eval_env, weights=agent.np_weights, log=self.log, state_encoder=state_encoder, ranker=self.ranker, observable=self.observable, num_episodes=num_episodes)
             # Storing current results
+            with open(self.log_file_dir, 'a') as f:
+                f.write(f'agent{i},clicks:{returns[0]},diversity:{returns[1]}, catalog coverage:{catalog_coverage}\n')
             self.population.add(agent, returns)
             self.archive.add(agent, returns, catalog_coverage)
             if add_to_prediction:
@@ -894,18 +904,19 @@ class PGMORL(MOAgent):
         if not hasattr(self, 'num_eval_weights_for_eval'):
             self.num_eval_weights_for_eval = num_test_weights_for_eval
 
-        if self.log:
-            log_all_multi_policy_metrics(
-                current_front=self.archive.evaluations,
-                hv_ref_point=ref_point,
-                reward_dim=self.reward_dim,
-                global_step=self.global_step,
-                n_sample_weights=self.num_eval_weights_for_eval,
-                ref_front=known_pareto_front,
-                name = name,
-                iteration=iteration,
-                filename=self.filename,
-            )
+        # if self.log:
+
+        log_all_multi_policy_metrics(
+            current_front=self.archive.evaluations,
+            hv_ref_point=ref_point,
+            reward_dim=self.reward_dim,
+            global_step=self.global_step,
+            n_sample_weights=self.num_eval_weights_for_eval,
+            ref_front=known_pareto_front,
+            name = name,
+            iteration=iteration,
+            filename=self.log_file_dir,
+        )
 
     def __task_weight_selection(self, ref_point: np.ndarray):
         """Chooses agents and weights to train at the next iteration based on the current population and prediction model."""
@@ -1003,15 +1014,15 @@ class PGMORL(MOAgent):
         csv_filename: str = None
     ):
         """Trains the agents."""
-        if self.log:
-            self.register_additional_config(
-                {
-                    "total_timesteps": total_timesteps,
-                    "ref_point": ref_point.tolist(),
-                    "known_front": known_pareto_front,
-                    "num_eval_weights_for_eval": num_eval_weights_for_eval,
-                }
-            )
+        # if self.log:
+        #     self.register_additional_config(
+        #         {
+        #             "total_timesteps": total_timesteps,
+        #             "ref_point": ref_point.tolist(),
+        #             "known_front": known_pareto_front,
+        #             "num_eval_weights_for_eval": num_eval_weights_for_eval,
+        #         }
+        #     )
         self.num_eval_weights_for_eval = num_eval_weights_for_eval
         print(f"total timesteps {total_timesteps}, steps per iteration {self.steps_per_iteration}, num envs {self.num_envs}")
         max_iterations = total_timesteps // self.steps_per_iteration // self.num_envs
@@ -1029,7 +1040,7 @@ class PGMORL(MOAgent):
             known_pareto_front=known_pareto_front,
             num_envs = self.num_envs,
             add_to_prediction=False,
-            name="init"
+            name="init",
             # state_encoder=state_encoder,
             
         )
@@ -1086,23 +1097,24 @@ class PGMORL(MOAgent):
         else:
             print("max iterations: " + str(max_iterations))
             while iteration < max_iterations:
+                print(f"iteration {iteration}")
                 # Every evolutionary iterations, change the task - weight assignments
                 self.__task_weight_selection(ref_point=ref_point)
-                if self.log:
-                    wandb.log(
-                        {"charts/evolutionary_generation": evolutionary_generation, "global_step": self.global_step},
-                    )
+                # if self.log:
+                #     wandb.log(
+                #         {"charts/evolutionary_generation": evolutionary_generation, "global_step": self.global_step},
+                #     )
                 for _ in range(self.evolutionary_iterations):
                     # print(f"global step{self.global_step}")
                     # Run training of every agent for evolutionary iterations.
-                    if self.log:
-                        print(f"Evolutionary iteration #{iteration - self.warmup_iterations}")
-                        wandb.log(
-                            {
-                                "charts/evolutionary_iterations": iteration - self.warmup_iterations,
-                                "global_step": self.global_step,
-                            },
-                        )
+                    # if self.log:
+                    #     print(f"Evolutionary iteration #{iteration - self.warmup_iterations}")
+                    #     wandb.log(
+                    #         {
+                    #             "charts/evolutionary_iterations": iteration - self.warmup_iterations,
+                    #             "global_step": self.global_step,
+                    #         },
+                    #     )
                     self.__train_all_agents(iteration=iteration, max_iterations=max_iterations, steps_per_iteration=self.steps_per_iteration)
                     iteration += 1
                 self.__eval_all_agents(
