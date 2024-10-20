@@ -883,6 +883,9 @@ def train(args):
                 # csv_writer.writerow(["train_charts/SPS", int((global_step - args.learning_starts) / (time.time() - start_time)), global_step])
 
     envs.close()
+    print(f"Elapsed time: {datetime.datetime.now() - start}")
+    with open(csv_path2, "a") as csv_file:
+        csv_file.write(f"\nElapsed time: {datetime.datetime.now() - start}\n")
     if args.track == "tensorboard":
         writer.close()
     csv_file.close()
