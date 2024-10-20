@@ -275,14 +275,10 @@ def make_env(
     env_id,
     idx,
     observable,
-    ranker,
     args,
-    decoder,
-    slate_size,
-    reward_type,
 ):
     def thunk():
-        env = gym.make(env_id, morl = args.morl, slate_size = args.slate_size, reward_type = reward_type, env_embedds=args.env_embedds, num_topics = args.num_topics, user_priors = args.user_priors, ml100k=args.ml100k)
+        env = gym.make(env_id, morl = args.morl, slate_size = args.slate_size, env_embedds=args.env_embedds, num_topics = args.num_topics, ml100k=args.ml100k)
         env = gym.wrappers.RecordEpisodeStatistics(env)
         if observable:
             env = IdealState(env)
@@ -331,7 +327,7 @@ class Actor(nn.Module):
         if state_dim is None:
             state_dim = np.array(env.single_observation_space.shape).prod()
         self.slate_size = slate_size
-        self.item_features = nn.Embedding.from_pretrained(torch.tensor(item_features), freeze=True) # Raw item representations
+        self.item_features = nn.Embedding.from_pretrained(torch.tensor(item_features), freeze=True).float() # Raw item representations
         self.reparam_std = reparam_std # Standard deviation for the reparameterization trick
         self.fc1 = nn.Linear(state_dim, hidden_size)
         self.fc2 = nn.Linear(hidden_size, hidden_size)
@@ -382,7 +378,7 @@ class Actor(nn.Module):
 
     def hyper2effect_map(self, hyper_action):
         # Infer the effect-action (i.e. slate) A from the hyper-action Z by calculating the top-k from dot product with item embeddings
-        dot_product = hyper_action @ self.item_map(self.item_features.weight).t() # (num_envs, num_items)
+        dot_product = hyper_action @ self.item_map(self.item_features.weight.float()).t() # (num_envs, num_items)
         dot_product = dot_product.cpu().numpy()
         ind = np.argpartition(dot_product, - self.slate_size)[:, - self.slate_size:] # (num_envs, slate_size)
         top_dot_product = np.take_along_axis(dot_product, ind, axis=-1) # (num_envs, slate_size)
@@ -730,7 +726,7 @@ def train(args):
                             actor_next_observations = qf_next_observations = data.next_observations["obs"].to(args.device)
                         else:
                             actor_next_observations = actor_state_encoder_target(data.next_observations).to(args.device)
-                            qf_next_observations = qf_state_encoder_target(data.next_observations.to(args.device))
+                            qf_next_observations = qf_state_encoder_target(data.next_observations).to(args.device)
 
                         next_state_hyper_actions = actor_target.get_action(actor_next_observations)
 
@@ -811,6 +807,7 @@ def train(args):
                     )
                     item_probs = torch.sigmoid(item_scores).to(args.device) # (num_envs, slate_size)
                     clicks = data.next_observations["clicks"].float().to(args.device) # (num_envs, slate_size)
+                    clicks = torch.clamp(data.next_observations["clicks"].float().to(args.device), 0, 1)
                     behavior_loss = F.binary_cross_entropy(item_probs, clicks)
 
                     behavior_optimizer.zero_grad()
