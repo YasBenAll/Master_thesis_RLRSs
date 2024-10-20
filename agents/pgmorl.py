@@ -1131,8 +1131,8 @@ class PGMORL(MOAgent):
 
         print("Done training!")
         self.env.close()
-        if self.log:
-            self.close_wandb()
+        # if self.log:
+        #     self.close_wandb()
 
     def save_pareto_archive(self, filename: str, evaluation_filename: str):
         archive_data = []
