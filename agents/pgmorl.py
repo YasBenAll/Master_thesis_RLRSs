@@ -1049,8 +1049,8 @@ class PGMORL(MOAgent):
         print("total warmup iterations", self.warmup_iterations)
         for i in range(1, self.warmup_iterations + 1):
             print(f"Warmup iteration #{iteration}")
-            if self.log:
-                wandb.log({"charts/warmup_iterations": i, "global_step": self.global_step})
+            # if self.log:
+            #     wandb.log({"charts/warmup_iterations": i, "global_step": self.global_step})
             self.__train_all_agents(iteration=iteration, max_iterations=max_iterations, steps_per_iteration=self.steps_per_iteration)
             iteration += 1
         self.__eval_all_agents(
