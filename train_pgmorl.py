@@ -258,9 +258,9 @@ if __name__ == "__main__":
 
         print(f"Training PGMORL using {args.agent} on {args.env_id} with {args.total_timesteps} timesteps. random = {args.random}, observable = {args.observable}, ranker = {args.ranker}, decoder = {args.decoder_name}")
         Path(os.path.join("logs","morl")).mkdir(parents=True, exist_ok=True)
-        with open(os.path.join("logs", "morl", f"{csv_filename}_train.log"), "w") as f:
-            f.write(f"Training PGMORL using {args.agent} on {args.env_id} with {args.total_timesteps} timesteps. random = {args.random}, observable = {args.observable}, ranker = {args.ranker}, decoder = {args.decoder_name}")
-            f.write(args)
+        with open(os.path.join("logs", "morl", f"{csv_filename}.log"), "w") as f:
+            f.write(f"Training PGMORL using {args.agent} on {args.env_id} with {args.total_timesteps} timesteps. random = {args.random}, observable = {args.observable}, ranker = {args.ranker}, decoder = {args.decoder_name}\n")
+            f.write(f"{args}")
         eval_env = make_env(env_id=args.env_id, seed=args.seed+1, run_name="Sardine_pgmorl", gamma=0.8, observable=args.observable, decoder=decoder, observation_shape = 16, args = args)()
         num_users_generated = 0
         import time
