@@ -42,7 +42,7 @@ python /var/scratch/yal700/Master_thesis_RLRSs/train_pgmorl.py \
     --steps-per-iteration $STEPS_PER_ITERATION \
     --train True \
     --test False \
-    --log True \
+    --log False \
     --num-envs 4 \
     --observable True \
     --agent mosac \
