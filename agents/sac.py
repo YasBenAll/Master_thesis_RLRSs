@@ -26,6 +26,7 @@ from .state_encoders import GRUStateEncoder, TransformerStateEncoder
 
 from utils.parser import get_generic_parser
 from utils.file import hash_config, args2str
+from .utils.memory_usage import log_memory_usage
 
 torch.set_float32_matmul_precision('high')
 
@@ -643,6 +644,7 @@ def train(args, decoder = None):
                 f.write(
                     f"\nStep {global_step}: clicks={np.mean(val_returns):.2f}, clicks_se={np.mean(val_returns)/np.sqrt(len(val_returns)):.2f}, diversity={np.mean(val_diversity):.2f}, diversity_se={np.mean(val_diversity)/np.sqrt(len(val_diversity))}, catalog coverage={np.mean(val_catalog_coverage):.2f}, catalog coverage_se={np.std(val_catalog_coverage)/np.sqrt(len(val_catalog_coverage)):.2f}"
                 )
+                log_memory_usage(file_path=csv_path2 ,step=global_step, tag=None)
             if args.reward_type != "diversity":
                 print(
                     f"Step {global_step}: clicks={np.mean(val_returns):.2f}, clicks_se={np.mean(val_returns)/np.sqrt(len(val_returns)):.2f}, diversity={np.mean(val_diversity):.2f}, diversity_se={np.mean(val_diversity)/np.sqrt(len(val_diversity))}, catalog coverage={np.mean(val_catalog_coverage):.2f}, catalog coverage_se={np.std(val_catalog_coverage)/np.sqrt(len(val_catalog_coverage)):.2f}"
