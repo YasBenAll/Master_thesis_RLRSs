@@ -52,3 +52,4 @@ python /var/scratch/yal700/Master_thesis_RLRSs/train_pgmorl.py \
     --ranker $RANKER \
     --seed $SEED \
     --ml100k $ML100K \
+    --random True
