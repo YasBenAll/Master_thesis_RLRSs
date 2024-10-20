@@ -312,21 +312,21 @@ def log_episode_info(
         idstr = "_" + str(id)
     else:
         idstr = ""
-    wandb.log(
-        {
-            f"charts{idstr}/timesteps_per_episode": episode_ts,
-            f"charts{idstr}/episode_time": episode_time,
-            f"metrics{idstr}/scalarized_episode_return": scal_return,
-            f"metrics{idstr}/discounted_scalarized_episode_return": disc_scal_return,
-            "global_step": global_timestep,
-        },
-        commit=False,
-    )
+    # wandb.log(
+    #     {
+    #         f"charts{idstr}/timesteps_per_episode": episode_ts,
+    #         f"charts{idstr}/episode_time": episode_time,
+    #         f"metrics{idstr}/scalarized_episode_return": scal_return,
+    #         f"metrics{idstr}/discounted_scalarized_episode_return": disc_scal_return,
+    #         "global_step": global_timestep,
+    #     },
+    #     commit=False,
+    # )
 
-    for i in range(episode_return.shape[0]):
-        wandb.log(
-            {
-                f"metrics{idstr}/episode_return_obj_{i}": episode_return[i],
-                f"metrics{idstr}/disc_episode_return_obj_{i}": disc_episode_return[i],
-            },
-        )
+    # for i in range(episode_return.shape[0]):
+    #     wandb.log(
+    #         {
+    #             f"metrics{idstr}/episode_return_obj_{i}": episode_return[i],
+    #             f"metrics{idstr}/disc_episode_return_obj_{i}": disc_episode_return[i],
+    #         },
+    #     )
