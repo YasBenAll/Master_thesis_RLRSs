@@ -26,12 +26,8 @@ python -V
 betas=(2705 3751 4685 3688 6383)
 SEED=${betas[SLURM_ARRAY_TASK_ID]}
 
-echo "Beta (KL): $BETA"
-echo "Lambda (click): $LAMBDA"
-echo "Slate size: $SLATE_SIZE"
-echo "Num items: $NUM_ITEMS"
 # mkdir pretrain_gems
 
 
 # Run the actual experiment
-python /var/scratch/yal700/Master_thesis_RLRSs/train.py --agent hac --total-timesteps 500000 --val-interval 5000 --policy-frequency 1 --observable True --buffer-size 100 --env-id sardine/SlateTopK-Bored-v0 --morl False --learning-starts 10000 --observable True  
+python /var/scratch/yal700/Master_thesis_RLRSs/train.py --agent hac --seed $SEED --total-timesteps 500000 --val-interval 5000 --policy-frequency 1 --observable True --buffer-size 100 --env-id sardine/SlateTopK-Bored-v0 --morl False --learning-starts 10000 --observable True  
