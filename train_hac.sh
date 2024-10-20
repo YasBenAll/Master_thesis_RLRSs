@@ -34,4 +34,4 @@ echo "Num items: $NUM_ITEMS"
 
 
 # Run the actual experiment
-python /var/scratch/yal700/Master_thesis_RLRSs/train.py --agent hac --total-timesteps 10000 --val-interval 1000 --policy-frequency 1 --observable True --buffer-size 100 --env-id sardine/SlateTopK-Bored-v0 --morl False --learning-starts 1000 --observable True  
+python /var/scratch/yal700/Master_thesis_RLRSs/train.py --agent hac --total-timesteps 500000 --val-interval 5000 --policy-frequency 1 --observable True --buffer-size 100 --env-id sardine/SlateTopK-Bored-v0 --morl False --learning-starts 10000 --observable True  
