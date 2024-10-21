@@ -10,7 +10,7 @@ import datetime
 from agents.wrappers import IdealState
 from pymoo.indicators.hv import HV
 from distutils.util import strtobool
-
+from agents.utils.memory_usage import log_memory_usage
 
 from agents.plots import plot
 
@@ -48,14 +48,21 @@ def main():
     args = parse_args()
 
     slate_list = [1, 3, 10, 20]
-    num_items = [1682]
+    num_items = [100, 500, 1000, 1682]
 
     slate_dict = {}
+    file_path = f"logs/memory_usage_num_items{','.join(map(str, num_items))}_slate{','.join(map(str, slate_list))}_{','.join(args.methods)}.log"
+    log_memory_usage(make_file=True, file_path=file_path, step = 0)
+    print(f"logging to {file_path}")
     for slate_size in slate_list:
         for num_item in num_items:
-            
+            if num_item == 1682:
+                args.ml100k = True
+            else:	
+                args.ml100k = False
             for env_id in args.env_ids:
                 # Make the environment
+                
                 env = gym.make(env_id, slate_size=slate_size, morl=args.morl, num_items=num_item, ml100k = args.ml100k)
                 env_name = "-".join(env_id.lower().split("-")[:-1])
                 env_dict = {}
@@ -142,7 +149,7 @@ def main():
                             else:
                                 val_diversity.append(diversity / env.unwrapped.H)
                             val_catalog_coverage.append(np.mean(catalog_coverage))  # Store average catalog coverage per episode
-
+                        log_memory_usage(make_file=False, file_path=file_path, step = 0)
                         seed_dict[seed] = val_metrics
                         click_list.append(seed_clicks)
                         catalog_coverage_list.append(seed_catalog_coverage)  # Add catalog coverage to the list
