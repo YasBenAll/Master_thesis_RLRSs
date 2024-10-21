@@ -18,7 +18,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Environment Evaluation")
     parser.add_argument("--morl", type=lambda x: bool(strtobool(x)), default=False, help="Specify if the algorithm is multi-objective.")
     parser.add_argument("--env-ids", type=str, nargs='+', default=["sardine/SlateTopK-Bored-v0"], help="List of environment IDs.")
-    parser.add_argument("--methods", type=str, nargs='+', default=["random"], help="List of methods to evaluate.")
+    parser.add_argument("--methods", type=str, nargs='+', default=["greedyoracle"], help="List of methods to evaluate.")
     parser.add_argument("--seeds", type=int, nargs='+', default=[2705, 3751, 4685, 3688, 6383], help="List of seeds for reproducibility.")
     parser.add_argument("--n-val-episodes", type=int, default=500, help="Number of validation episodes.")
     parser.add_argument("--total-timesteps", type=int, default=10000, help="Total timesteps for the evaluation.")
