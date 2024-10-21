@@ -640,20 +640,24 @@ def train(args, decoder = None):
                     os.path.join("data", "sac_models", f"qf1_target_best_{args.ranker}_slatesize{args.slate_size}_numitem{args.num_items}_{args.seed}_steps{args.total_timesteps}.pt"),
                 )
 
-            with open(csv_path2, "a") as f:
-                f.write(
-                    f"\nStep {global_step}: clicks={np.mean(val_returns):.2f}, clicks_se={np.mean(val_returns)/np.sqrt(len(val_returns)):.2f}, diversity={np.mean(val_diversity):.2f}, diversity_se={np.mean(val_diversity)/np.sqrt(len(val_diversity))}, catalog coverage={np.mean(val_catalog_coverage):.2f}, catalog coverage_se={np.std(val_catalog_coverage)/np.sqrt(len(val_catalog_coverage)):.2f}"
-                )
+
                 log_memory_usage(file_path=csv_path2 ,step=global_step, tag=None)
             if args.reward_type != "diversity":
                 print(
                     f"Step {global_step}: clicks={np.mean(val_returns):.2f}, clicks_se={np.mean(val_returns)/np.sqrt(len(val_returns)):.2f}, diversity={np.mean(val_diversity):.2f}, diversity_se={np.mean(val_diversity)/np.sqrt(len(val_diversity))}, catalog coverage={np.mean(val_catalog_coverage):.2f}, catalog coverage_se={np.std(val_catalog_coverage)/np.sqrt(len(val_catalog_coverage)):.2f}"
                 )
+                with open(csv_path2, "a") as f:
+                    f.write(
+                        f"\nStep {global_step}: clicks={np.mean(val_returns):.2f}, clicks_se={np.mean(val_returns)/np.sqrt(len(val_returns)):.2f}, diversity={np.mean(val_diversity):.2f}, diversity_se={np.mean(val_diversity)/np.sqrt(len(val_diversity))}, catalog coverage={np.mean(val_catalog_coverage):.2f}, catalog coverage_se={np.std(val_catalog_coverage)/np.sqrt(len(val_catalog_coverage)):.2f}"
+                    )
             else:
                 print(
                     f"Step {global_step}: clicks={np.mean(val_clicks):.2f}, clicks_se={np.mean(val_clicks)/np.sqrt(len(val_clicks)):.2f}, diversity={np.mean(val_diversity):.2f}, diversity_se={np.mean(val_diversity)/np.sqrt(len(val_diversity))}, catalog coverage={np.mean(val_catalog_coverage):.2f}, catalog coverage_se={np.std(val_catalog_coverage)/np.sqrt(len(val_catalog_coverage)):.2f}"
                 )
-
+                with open(csv_path2, "a") as f:
+                    f.write(
+                        f"Step {global_step}: clicks={np.mean(val_clicks):.2f}, clicks_se={np.mean(val_clicks)/np.sqrt(len(val_clicks)):.2f}, diversity={np.mean(val_diversity):.2f}, diversity_se={np.mean(val_diversity)/np.sqrt(len(val_diversity))}, catalog coverage={np.mean(val_catalog_coverage):.2f}, catalog coverage_se={np.std(val_catalog_coverage)/np.sqrt(len(val_catalog_coverage)):.2f}"
+                    )
             if args.track == "wandb":
                 val_user_pref = np.array(val_user_pref)
                 val_slates = np.array(val_slates)
