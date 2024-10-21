@@ -875,7 +875,7 @@ class PGMORL(MOAgent):
         num_envs: int = 1,
         name: str = 'test',
         iteration: int = 0,
-        num_episodes: int = 5,
+        num_episodes: int = 25,
         num_test_weights_for_eval: int = 50,
     ):
         """Evaluates all agents and store their current performances on the buffer and pareto archive."""

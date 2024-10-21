@@ -366,7 +366,7 @@ if __name__ == "__main__":
             ref_point=np.array([0.0, 0.0]),
             known_pareto_front=None,
             name = 'test',
-            num_episodes=4
+            num_episodes=500
             )
         # print(evaluations)
         result = np.array([np.append( algo.archive.evaluations,algo.archive.catalog_coverage) for i, arr in enumerate(algo.archive.evaluations)])
