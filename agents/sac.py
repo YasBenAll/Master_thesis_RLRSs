@@ -641,7 +641,7 @@ def train(args, decoder = None):
                 )
 
 
-                log_memory_usage(file_path=csv_path2 ,step=global_step, tag=None)
+            log_memory_usage(file_path=csv_path2 ,step=global_step, tag=None)
             if args.reward_type != "diversity":
                 print(
                     f"Step {global_step}: clicks={np.mean(val_returns):.2f}, clicks_se={np.mean(val_returns)/np.sqrt(len(val_returns)):.2f}, diversity={np.mean(val_diversity):.2f}, diversity_se={np.mean(val_diversity)/np.sqrt(len(val_diversity))}, catalog coverage={np.mean(val_catalog_coverage):.2f}, catalog coverage_se={np.std(val_catalog_coverage)/np.sqrt(len(val_catalog_coverage)):.2f}"
@@ -656,7 +656,7 @@ def train(args, decoder = None):
                 )
                 with open(csv_path2, "a") as f:
                     f.write(
-                        f"Step {global_step}: clicks={np.mean(val_clicks):.2f}, clicks_se={np.mean(val_clicks)/np.sqrt(len(val_clicks)):.2f}, diversity={np.mean(val_diversity):.2f}, diversity_se={np.mean(val_diversity)/np.sqrt(len(val_diversity))}, catalog coverage={np.mean(val_catalog_coverage):.2f}, catalog coverage_se={np.std(val_catalog_coverage)/np.sqrt(len(val_catalog_coverage)):.2f}"
+                        f"\nStep {global_step}: clicks={np.mean(val_clicks):.2f}, clicks_se={np.mean(val_clicks)/np.sqrt(len(val_clicks)):.2f}, diversity={np.mean(val_diversity):.2f}, diversity_se={np.mean(val_diversity)/np.sqrt(len(val_diversity))}, catalog coverage={np.mean(val_catalog_coverage):.2f}, catalog coverage_se={np.std(val_catalog_coverage)/np.sqrt(len(val_catalog_coverage)):.2f}"
                     )
             if args.track == "wandb":
                 val_user_pref = np.array(val_user_pref)
@@ -978,10 +978,11 @@ def test(args, decoder=None):
 
     # Run test episodes
     ep = 0
-    test_returns, test_lengths, test_diversity, test_catalog_coverage = [], [], [], []
+    test_returns, test_lengths, test_diversity, test_catalog_coverage, test_clicks = [], [], [], []
     max_episodes = 500  # Specify the number of test episodes to run
     start = datetime.datetime.now()
     while ep < max_episodes:
+        cum_clicks = 0
         with torch.no_grad():
             # Prepare the observation for the actor model
             if args.observable:
@@ -1010,7 +1011,10 @@ def test(args, decoder=None):
                 test_diversity.append(info["diversity"])
                 test_lengths.append(info["episode"]["l"])
                 test_catalog_coverage.append(info["catalog_coverage"])
+                test_clicks.append(cum_clicks)
                 ep += 1
+        else:
+            cum_clicks += infos["clicks"]
 
         # Update the observation
         test_obs = next_obs
@@ -1020,7 +1024,7 @@ def test(args, decoder=None):
 
     # Print out test metrics
     print(f"Test Results over {max_episodes} Episodes:")
-    print(f"Average Return: {np.mean(test_returns):.2f} ± {np.std(test_returns):.2f}")
+    print(f"Average Clicks: {np.mean(test_clicks):.2f} ± {np.std(test_clicks):.2f}")
     print(f"Average Diversity: {np.mean(test_diversity):.2f} ± {np.std(test_diversity):.2f}")
     print(f"Average Catalog Coverage: {np.mean(test_catalog_coverage):.2f} ± {np.std(test_catalog_coverage):.2f}")
     end = datetime.datetime.now()
