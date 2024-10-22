@@ -997,7 +997,7 @@ def test(args, decoder=None):
             # Convert actions to numpy if the ranker is not "gems"
             if args.ranker != "gems":
                 actions = actions.cpu().numpy()
-
+        print("action:",actions)
         # Step in the environment with the actions
         next_obs, rewards, terminated, truncated, infos = test_envs.step(actions)
 
