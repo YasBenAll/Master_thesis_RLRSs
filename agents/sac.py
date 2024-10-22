@@ -981,8 +981,9 @@ def test(args, decoder=None):
     test_returns, test_lengths, test_diversity, test_catalog_coverage, test_clicks = [], [], [], [], []
     max_episodes = 500  # Specify the number of test episodes to run
     start = datetime.datetime.now()
+    cum_clicks = 0
     while ep < max_episodes:
-        cum_clicks = 0
+
         with torch.no_grad():
             # Prepare the observation for the actor model
             if args.observable:
@@ -1013,9 +1014,9 @@ def test(args, decoder=None):
                 test_catalog_coverage.append(info["catalog_coverage"])
                 test_clicks.append(cum_clicks)
                 ep += 1
+                cum_clicks = 0	
         else:
             cum_clicks += infos["clicks"][0]
-
         # Update the observation
         test_obs = next_obs
 
