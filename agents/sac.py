@@ -1014,6 +1014,7 @@ def test(args, decoder=None):
                 test_clicks.append(cum_clicks)
                 ep += 1
         else:
+            print(info["clicks"])
             cum_clicks += infos["clicks"]
 
         # Update the observation
