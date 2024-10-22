@@ -57,7 +57,7 @@ python /var/scratch/yal700/Master_thesis_RLRSs/train.py \
   --tau 0.05 \
   --batch-size 32 \
   --env-embedds item_embeddings_numitems${NUM_ITEMS}.npy \
-  --train False \
+  --train True \
   --test True \
   --reward-type diversity\
   --ml100k True
