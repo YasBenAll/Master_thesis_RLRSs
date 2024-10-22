@@ -1000,7 +1000,6 @@ def test(args, decoder=None):
 
         # Step in the environment with the actions
         next_obs, rewards, terminated, truncated, infos = test_envs.step(actions)
-        print("action:",next_obs)
         # Handle the end of an episode
         if "final_info" in infos:
             if not args.observable:
