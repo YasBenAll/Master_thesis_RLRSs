@@ -978,7 +978,7 @@ def test(args, decoder=None):
 
     # Run test episodes
     ep = 0
-    test_returns, test_lengths, test_diversity, test_catalog_coverage, test_clicks = [], [], [], []
+    test_returns, test_lengths, test_diversity, test_catalog_coverage, test_clicks = [], [], [], [], []
     max_episodes = 500  # Specify the number of test episodes to run
     start = datetime.datetime.now()
     while ep < max_episodes:
