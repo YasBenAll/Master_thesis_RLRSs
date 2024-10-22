@@ -1041,7 +1041,7 @@ def test(args, decoder=None):
     with open(csv_path2, "w") as f:
         f.write(f"Running test set over best performing model on validation set (test seed = {args.seed+2})\n")
         f.write(f"\nTest Results over {max_episodes} Episodes:\n")
-        f.write(f"Average Return: {np.mean(test_returns):.2f} ± {np.std(test_returns):.2f}\n")
+        f.write(f"Average Clicks: {np.mean(test_clicks):.2f} ± {np.std(test_clicks):.2f}\n")
         f.write(f"Average Diversity: {np.mean(test_diversity):.2f} ± {np.std(test_diversity):.2f}\n")
         f.write(f"Average Catalog Coverage: {np.mean(test_catalog_coverage):.2f} ± {np.std(test_catalog_coverage):.2f}\n")
         f.write(f"Elapsed time: {end - start}\n")
