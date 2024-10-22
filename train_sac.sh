@@ -60,4 +60,4 @@ python /var/scratch/yal700/Master_thesis_RLRSs/train.py \
   --train False \
   --test True \
   --reward-type diversity\
-  --ml100k False
+  --ml100k True
