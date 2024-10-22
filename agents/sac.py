@@ -1014,7 +1014,8 @@ def test(args, decoder=None):
                 test_clicks.append(cum_clicks)
                 ep += 1
         else:
-            print(info["clicks"])
+            with open(csv_path2, "w") as f:
+                f.write(infos['clicks'])
             cum_clicks += infos["clicks"]
 
         # Update the observation
