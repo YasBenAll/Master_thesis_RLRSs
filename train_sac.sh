@@ -59,5 +59,5 @@ python /var/scratch/yal700/Master_thesis_RLRSs/train.py \
   --env-embedds item_embeddings_numitems${NUM_ITEMS}.npy \
   --train False \
   --test True \
-  --reward-type diversity
+  --reward-type diversity\
   --ml100k False
