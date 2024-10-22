@@ -41,7 +41,7 @@ python /var/scratch/yal700/Master_thesis_RLRSs/train_pgmorl.py \
     --total-timesteps $TIMESTEPS \
     --steps-per-iteration $STEPS_PER_ITERATION \
     --train True \
-    --test False \
+    --test True \
     --log False \
     --num-envs 4 \
     --observable True \
@@ -51,4 +51,4 @@ python /var/scratch/yal700/Master_thesis_RLRSs/train_pgmorl.py \
     --warmup-iterations 5 \
     --ranker $RANKER \
     --seed $SEED \
-    --ml100k $ML100K \
+    --ml100k $ML100K
